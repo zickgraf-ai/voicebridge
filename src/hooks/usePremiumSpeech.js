@@ -154,11 +154,21 @@ export function usePremiumSpeech() {
     audio.volume = 1;
     audioRef.current = audio;
 
-    // Try cached premium audio first
+    // When not premiumOnly, start Web Speech SYNCHRONOUSLY before any await.
+    // iOS Safari requires speechSynthesis.speak() to be in the synchronous
+    // user gesture handler chain — an await breaks this context.
+    // If premium audio is found in cache, we cancel Web Speech and play it.
+    if (!premiumOnly) {
+      speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+    }
+
+    // Try cached premium audio
     const key = voiceName + ':' + text;
     const blob = await getAudio(key);
 
     if (blob) {
+      // Cancel Web Speech fallback — premium audio is available
+      window.speechSynthesis?.cancel();
       setError(null);
       const url = URL.createObjectURL(blob);
       audio.src = url;
@@ -180,9 +190,9 @@ export function usePremiumSpeech() {
 
     // Not cached: behavior depends on premiumOnly setting
     if (!premiumOnly) {
-      // Default: play Web Speech API immediately, cache premium in background
+      // Web Speech is already playing (started synchronously above).
+      // Cache premium audio in background for next time.
       audioRef.current = null;
-      speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
 
       try {
         const resp = await fetch('/api/speak', {
