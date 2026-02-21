@@ -5,9 +5,6 @@ import { LOCATION_PHRASES } from '../data/phrases';
 // Cache AI suggestions for 2 minutes
 const AI_CACHE_TTL = 2 * 60 * 1000;
 
-// Local suggestions staleness: recompute after 30 seconds
-const LOCAL_STALENESS_MS = 30 * 1000;
-
 /**
  * Manages local-first → AI upgrade flow for smart suggestions.
  * Shows local suggestions immediately, then swaps in AI suggestions when available.
@@ -15,7 +12,8 @@ const LOCAL_STALENESS_MS = 30 * 1000;
  * Local suggestions are cached via ref and only recomputed when:
  * - locationLabel changes
  * - the hour changes
- * - 30 seconds have elapsed since last computation
+ * This prevents grid reshuffling on phrase taps (recency penalty would
+ * push tapped phrases off the list if recomputed on every render).
  */
 export function useSuggestions({
   frequencyMap,
@@ -38,7 +36,6 @@ export function useSuggestions({
     suggestions: null,
     locationLabel: null,
     hour: -1,
-    timestamp: 0,
   });
 
   // Look up location-specific phrases
@@ -47,15 +44,15 @@ export function useSuggestions({
     [locationLabel]
   );
 
-  // Build local suggestions with staleness check
+  // Build local suggestions — only recompute on location or hour change.
+  // NOT on time elapsed, history change, or frequency change, because
+  // recency penalty would cause tapped phrases to disappear from the grid.
   const currentHour = new Date().getHours();
-  const now = Date.now();
   const cached = localRef.current;
   const isStale =
     !cached.suggestions ||
     cached.locationLabel !== locationLabel ||
-    cached.hour !== currentHour ||
-    now - cached.timestamp >= LOCAL_STALENESS_MS;
+    cached.hour !== currentHour;
 
   let localSuggestions;
   if (isStale) {
@@ -73,7 +70,6 @@ export function useSuggestions({
       suggestions: localSuggestions,
       locationLabel,
       hour: currentHour,
-      timestamp: now,
     };
   } else {
     localSuggestions = cached.suggestions;
@@ -138,7 +134,11 @@ export function useSuggestions({
     };
   }, [cacheKey]);
 
-  // Merge: pinned phrases first, then AI suggestions (or local fallback)
+  // Merge: pinned phrases first, then AI suggestions (or local fallback).
+  // Memoize to preserve referential stability — PhraseGrid resets page on
+  // items identity change, so a new array every render causes unnecessary resets.
+  const prevResultRef = useRef([]);
+
   const validPins = (pinnedPhrases || [])
     .filter((p) => !p.expiresAt || new Date(p.expiresAt).getTime() > Date.now())
     .slice(0, 3);
@@ -177,8 +177,20 @@ export function useSuggestions({
     finalSuggestions = localSuggestions;
   }
 
+  const result = finalSuggestions.slice(0, count);
+
+  // Return same reference if content hasn't changed (prevents PhraseGrid re-render)
+  const prev = prevResultRef.current;
+  const changed =
+    prev.length !== result.length ||
+    result.some((item, i) => item.t !== prev[i]?.t);
+
+  if (changed) {
+    prevResultRef.current = result;
+  }
+
   return {
-    suggestions: finalSuggestions.slice(0, count),
+    suggestions: prevResultRef.current,
     aiActive: !!aiSuggestions,
     aiLoading,
   };
