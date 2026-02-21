@@ -43,56 +43,54 @@ export default function PhraseGrid({ items, onTap, color, pageSize }) {
         <div
           style={{
             display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 12,
-            height: 26,
+            gap: 6,
             flexShrink: 0,
           }}
         >
+          {page > 0 && (
+            <button
+              onClick={() => setPage((p) => p - 1)}
+              style={{
+                flex: 1,
+                minHeight: 48,
+                background: '#1E293B',
+                border: `2px solid ${color}44`,
+                borderRadius: 12,
+                color: '#E2E8F0',
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
+            >
+              {'\u2190'} Back
+            </button>
+          )}
           <button
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
+            onClick={() => setPage((p) => (p + 1) % total)}
             style={{
-              background: 'none',
-              border: 'none',
-              color: page === 0 ? '#334155' : '#94A3B8',
-              fontSize: 24,
+              flex: 2,
+              minHeight: 48,
+              background: color + '20',
+              border: `2px solid ${color}66`,
+              borderRadius: 12,
+              color: '#E2E8F0',
+              fontSize: 16,
+              fontWeight: 600,
               cursor: 'pointer',
-              padding: '0 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
             }}
           >
-            {'\u2039'}
-          </button>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {Array.from({ length: total }, (_, i) => (
-              <div
-                key={i}
-                onClick={() => setPage(i)}
-                style={{
-                  width: i === page ? 20 : 8,
-                  height: 8,
-                  borderRadius: 4,
-                  background: i === page ? color : '#475569',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              />
-            ))}
-          </div>
-          <button
-            onClick={() => setPage((p) => Math.min(total - 1, p + 1))}
-            disabled={page === total - 1}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: page === total - 1 ? '#334155' : '#94A3B8',
-              fontSize: 24,
-              cursor: 'pointer',
-              padding: '0 12px',
-            }}
-          >
-            {'\u203A'}
+            {page < total - 1 ? 'More' : 'Back to start'} {'\u2192'}{' '}
+            <span style={{ color: '#94A3B8', fontSize: 13, fontWeight: 400 }}>
+              {page + 1}/{total}
+            </span>
           </button>
         </div>
       )}

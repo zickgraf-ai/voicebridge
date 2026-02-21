@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
 import SegmentControl from '../components/SegmentControl';
@@ -13,12 +14,28 @@ function speakTest(voices, settings) {
 }
 
 export default function SettingsScreen() {
-  const { state, setSettings } = useAppContext();
-  const { settings } = state;
+  const { state, setSettings, setProfile } = useAppContext();
+  const { settings, profile } = state;
   const voices = useVoices();
+  const [backupMsg, setBackupMsg] = useState('');
 
   const update = (key, value) => {
     setSettings((s) => ({ ...s, [key]: value }));
+  };
+
+  const handleBackup = () => {
+    const data = { profile, settings };
+    const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
+    const url = window.location.origin + '?restore=' + encoded;
+    navigator.clipboard?.writeText(url).then(
+      () => setBackupMsg('Link copied to clipboard!'),
+      () => {
+        // Fallback: show the URL
+        prompt('Copy this backup link:', url);
+        setBackupMsg('');
+      }
+    );
+    setTimeout(() => setBackupMsg(''), 3000);
   };
 
   return (
@@ -194,6 +211,54 @@ export default function SettingsScreen() {
           { label: 'Off', value: 0 },
         ]}
       />
+
+      {/* Backup / Restore */}
+      <div
+        style={{
+          background: '#1E293B',
+          borderRadius: 12,
+          padding: 14,
+          border: '1px solid #334155',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <div style={{ color: '#94A3B8', fontSize: 13 }}>
+          {'\u{1F4BE}'} Backup & Restore
+        </div>
+        <div style={{ color: '#64748B', fontSize: 12 }}>
+          Copy a backup link to transfer your profile and settings between
+          Safari and the home screen app.
+        </div>
+        <button
+          onClick={handleBackup}
+          style={{
+            background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+            border: 'none',
+            borderRadius: 12,
+            padding: 12,
+            color: '#fff',
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          {'\u{1F4CB}'} Copy Backup Link
+        </button>
+        {backupMsg && (
+          <div
+            style={{
+              color: '#10B981',
+              fontSize: 13,
+              fontWeight: 600,
+              textAlign: 'center',
+            }}
+          >
+            {'\u2705'} {backupMsg}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

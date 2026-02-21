@@ -81,10 +81,31 @@ export default function TalkScreen() {
     [setAndSpeak, editing, text, profile]
   );
 
-  const items =
-    cat === 'smart'
-      ? SMART_PHRASES[getTimeOfDay()] || SMART_PHRASES.afternoon
-      : CATEGORY_PHRASES[cat] || [];
+  // Build dynamic items based on category + profile data
+  const items = (() => {
+    if (cat === 'smart') {
+      return SMART_PHRASES[getTimeOfDay()] || SMART_PHRASES.afternoon;
+    }
+    if (cat === 'people') {
+      // Generate "Call [Name]" and "Where's [Name]?" from profile family members
+      const familyButtons = profile.familyMembers.flatMap((f) => [
+        { t: 'Call ' + f.name, i: f.photo || '\u{1F464}' },
+        { t: "Where's " + f.name + '?', i: '\u2753' },
+      ]);
+      return [...familyButtons, ...(CATEGORY_PHRASES.people || [])];
+    }
+    if (cat === 'medical') {
+      // Inject medication buttons from profile
+      const medButtons = profile.medications.map((m) => ({
+        t: 'Time for ' + m.name,
+        i: '\u{1F48A}',
+      }));
+      const base = CATEGORY_PHRASES.medical || [];
+      // Insert med buttons after the static medical buttons
+      return [...base, ...medButtons];
+    }
+    return CATEGORY_PHRASES[cat] || [];
+  })();
   const catColor =
     CATEGORIES.find((c) => c.id === cat)?.color || '#3B82F6';
 

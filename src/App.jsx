@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppContext } from './context/AppContext';
 import TalkScreen from './screens/TalkScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -7,8 +7,25 @@ import CareScreen from './screens/CareScreen';
 import BottomNav from './components/BottomNav';
 
 export default function App() {
-  const { state } = useAppContext();
+  const { state, setProfile, setSettings } = useAppContext();
   const [view, setView] = useState('talk');
+
+  // Restore from backup link (?restore=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get('restore');
+      if (!encoded) return;
+      const json = decodeURIComponent(atob(encoded));
+      const data = JSON.parse(json);
+      if (data.profile) setProfile(data.profile);
+      if (data.settings) setSettings(data.settings);
+      // Clean URL without reload
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch {
+      // Invalid restore data — ignore
+    }
+  }, [setProfile, setSettings]);
 
   return (
     <div
