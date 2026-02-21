@@ -734,6 +734,18 @@ export default function SettingsScreen() {
           </div>
         )}
       </div>
+
+      {/* Version */}
+      <div
+        style={{
+          textAlign: 'center',
+          color: '#475569',
+          fontSize: 12,
+          padding: '8px 0 16px',
+        }}
+      >
+        VoiceBridge v{__APP_VERSION__}
+      </div>
     </div>
   );
 }

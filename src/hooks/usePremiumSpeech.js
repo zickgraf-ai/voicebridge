@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { getAudio, putAudio, getCacheStatus, hasCachedKeySync } from '../utils/audioCache';
+import { getAudio, putAudio, getCacheStatus } from '../utils/audioCache';
 import { ALL_STANDARD_PHRASES } from '../data/phrases';
 
 const MAX_CONCURRENT = 5;
@@ -154,19 +154,23 @@ export function usePremiumSpeech() {
     audio.volume = 1;
     audioRef.current = audio;
 
-    // Build cache key for this phrase
     const key = voiceName + ':' + text;
 
-    // When not premiumOnly, we need Web Speech as fallback. But only fire it
-    // if we DON'T have premium audio cached (sync check via in-memory Set).
-    // This prevents both voices playing simultaneously when premium is cached.
-    // If the sync check is wrong (key cached in IndexedDB but not yet in memory),
-    // the async getAudio below will still find it — worst case, Web Speech fires
-    // briefly then gets cancelled, which is better than silence on iOS Safari.
-    if (!premiumOnly && !hasCachedKeySync(key)) {
+    // When not premiumOnly, ALWAYS start Web Speech synchronously.
+    // iOS Safari requires speechSynthesis.speak() in the sync gesture chain.
+    // If premium audio is found in cache (~5ms), we cancel Web Speech before
+    // it produces audible output. This avoids silence when sync cache checks
+    // disagree with async IndexedDB reads.
+    if (!premiumOnly) {
       speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
     }
+
+    // Try cached premium audio
     const blob = await getAudio(key);
+
+    // Guard: if another tap happened while we were awaiting, bail out.
+    // This prevents stale async continuations from playing over the new tap.
+    if (audioRef.current !== audio) return;
 
     if (blob) {
       // Cancel Web Speech fallback — premium audio is available
@@ -202,6 +206,7 @@ export function usePremiumSpeech() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, voice: voiceName }),
         });
+        if (audioRef.current !== null) return; // another tap took over
         if (resp.ok) {
           const newBlob = await resp.blob();
           await putAudio(key, newBlob);
@@ -225,6 +230,7 @@ export function usePremiumSpeech() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, voice: voiceName }),
         });
+        if (audioRef.current !== audio) return; // another tap took over
         if (resp.ok) {
           const newBlob = await resp.blob();
           await putAudio(key, newBlob);
@@ -247,7 +253,6 @@ export function usePremiumSpeech() {
             : 'Premium voice unavailable.';
           setError(msg);
           setTimeout(() => setError(null), 5000);
-          // Fall back to Web Speech only on error
           speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
         }
       } catch {
