@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import PhraseButton from './PhraseButton';
 
-export default function PhraseGrid({ items, onTap, color, pageSize }) {
+export default function PhraseGrid({ items, onTap, color, pageSize, category }) {
   const [page, setPage] = useState(0);
 
-  // Reset to first page when items change
-  useEffect(() => setPage(0), [items]);
+  // Reset to first page only when category changes (not on items reference change,
+  // which happens every render for dynamic categories like people/medical)
+  useEffect(() => setPage(0), [category]);
 
   const total = Math.ceil(items.length / pageSize);
   const visible = items.slice(page * pageSize, page * pageSize + pageSize);

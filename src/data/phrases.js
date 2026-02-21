@@ -65,7 +65,7 @@ export const CATEGORY_PHRASES = {
     { t: "I'm cold", i: '\u{1F976}' },
     { t: "I'm hot", i: '\u{1F975}' },
     { t: 'Turn on TV', i: '\u{1F4FA}' },
-    { t: 'Light off', i: '\u{1F4A1}' },
+    { t: 'Turn off lights', i: '\u{1F4A1}' },
     { t: 'Open window', i: '\u{1FA9F}' },
     { t: 'Blanket', i: '\u{1F9E3}' },
     { t: 'Sit me up', i: '\u{1FA91}' },

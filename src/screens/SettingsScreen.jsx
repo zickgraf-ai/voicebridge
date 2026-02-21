@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
 import { useLocation } from '../hooks/useLocation';
 import { PREMIUM_VOICES } from '../hooks/usePremiumSpeech';
-import { getAudio, putAudio } from '../utils/audioCache';
+import { getAudio, putAudio, clearAudio } from '../utils/audioCache';
 import SegmentControl from '../components/SegmentControl';
 
 function speakTest(voices, settings) {
@@ -28,6 +28,7 @@ export default function SettingsScreen() {
   const [voiceTesting, setVoiceTesting] = useState(false);
   const [savingLocation, setSavingLocation] = useState(false);
   const [customLocationLabel, setCustomLocationLabel] = useState('');
+  const [cacheCleared, setCacheCleared] = useState(false);
 
   const isPremium = settings.voiceProvider === 'premium';
 
@@ -409,6 +410,30 @@ export default function SettingsScreen() {
         }}>
           {voiceError}
         </div>
+      )}
+
+      {/* Clear Voice Cache (premium only) */}
+      {isPremium && (
+        <button
+          onClick={async () => {
+            await clearAudio(settings.premiumVoice || 'nova');
+            setCacheCleared(true);
+            setTimeout(() => setCacheCleared(false), 3000);
+          }}
+          style={{
+            background: cacheCleared ? '#10B98133' : '#1E293B',
+            border: '1px solid ' + (cacheCleared ? '#10B981' : '#334155'),
+            borderRadius: 12,
+            padding: 10,
+            color: cacheCleared ? '#6EE7B7' : '#94A3B8',
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          {cacheCleared
+            ? '\u2705 Cache cleared! Voices will re-download.'
+            : '\u{1F5D1}\uFE0F Clear Voice Cache'}
+        </button>
       )}
 
       {/* Category Tab Size */}

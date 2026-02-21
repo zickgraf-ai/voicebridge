@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { getAudio, putAudio, getCacheStatus } from '../utils/audioCache';
+import { getAudio, putAudio, getCacheStatus, deleteAudio } from '../utils/audioCache';
 import { ALL_STANDARD_PHRASES } from '../data/phrases';
 
 const MAX_CONCURRENT = 5;
@@ -178,14 +178,17 @@ export function usePremiumSpeech() {
     // This prevents stale async continuations from playing over the new tap.
     if (audioRef.current !== audio) return;
 
-    if (blob) {
-      // Cancel Web Speech fallback — premium audio is available
-      if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
-        window.speechSynthesis.cancel();
-      }
+    if (blob && blob.size > 100) {
       setError(null);
       const url = URL.createObjectURL(blob);
       audio.src = url;
+      audio.onplaying = () => {
+        // Only cancel Web Speech AFTER premium audio is confirmed playing.
+        // This prevents silence if the blob is corrupt/unplayable.
+        if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
+          window.speechSynthesis.cancel();
+        }
+      };
       audio.onended = () => {
         URL.revokeObjectURL(url);
         if (audioRef.current === audio) audioRef.current = null;
@@ -193,13 +196,21 @@ export function usePremiumSpeech() {
       audio.onerror = () => {
         URL.revokeObjectURL(url);
         if (audioRef.current === audio) audioRef.current = null;
-        speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+        // Delete corrupt cache entry so the next tap works.
+        // Do NOT retry speakWebSpeech here — we're outside iOS gesture context.
+        deleteAudio(key);
       };
       audio.play().catch(() => {
         URL.revokeObjectURL(url);
-        speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+        // Delete corrupt cache entry; Web Speech fallback continues naturally
+        deleteAudio(key);
       });
       return;
+    }
+
+    // Blob was null or too small (corrupt) — delete it if it exists
+    if (blob) {
+      deleteAudio(key);
     }
 
     // Not cached: behavior depends on premiumOnly setting
@@ -293,10 +304,4 @@ function speakWebSpeech(text, rate, voices, voiceURI) {
   const voice = voices.find((v) => v.voiceURI === voiceURI) || voices[0];
   if (voice) utterance.voice = voice;
   synth.speak(utterance);
-  // iOS Safari workaround: pause+resume forces the utterance to actually start.
-  // Without this, iOS can queue the utterance but never play it.
-  if ('ontouchstart' in window) {
-    synth.pause();
-    synth.resume();
-  }
 }

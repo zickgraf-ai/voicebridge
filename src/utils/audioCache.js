@@ -133,6 +133,21 @@ export async function getCacheStatus(voiceName, allPhrases) {
 }
 
 /**
+ * Delete a single audio entry from cache.
+ * @param {string} key - Cache key (e.g., "nova:Bathroom")
+ */
+export async function deleteAudio(key) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(key);
+    _knownKeys.delete(key);
+  } catch {
+    // Silently fail
+  }
+}
+
+/**
  * Clear all cached audio for a specific voice, or all voices.
  * @param {string} [voiceName] - If provided, only clear this voice
  */

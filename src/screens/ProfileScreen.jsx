@@ -429,11 +429,25 @@ export default function ProfileScreen({ onDone }) {
 
         {step === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div
+              style={{
+                background: '#3B82F611',
+                border: '1px solid #3B82F633',
+                borderRadius: 10,
+                padding: 10,
+                color: '#93C5FD',
+                fontSize: 13,
+              }}
+            >
+              {'\u{1F517}'} Integrations are coming soon. These will let you
+              import contacts, calendar events, and health data to personalize
+              your phrases.
+            </div>
             {[
-              { n: 'Google Contacts', i: '\u{1F465}', ok: true },
-              { n: 'Google Calendar', i: '\u{1F4C5}', ok: true },
-              { n: 'Apple Health', i: '\u2764\uFE0F\u200D\u{1FA79}', ok: true },
-              { n: 'Facebook', i: '\u{1F464}', ok: false },
+              { n: 'Google Contacts', i: '\u{1F465}' },
+              { n: 'Google Calendar', i: '\u{1F4C5}' },
+              { n: 'Apple Health', i: '\u2764\uFE0F\u200D\u{1FA79}' },
+              { n: 'Facebook', i: '\u{1F464}' },
             ].map((a) => (
               <div
                 key={a.n}
@@ -445,26 +459,25 @@ export default function ProfileScreen({ onDone }) {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
+                  opacity: 0.6,
                 }}
               >
                 <span style={{ fontSize: 22 }}>{a.i}</span>
                 <span style={{ flex: 1, color: '#E2E8F0', fontSize: 14 }}>
                   {a.n}
                 </span>
-                <button
+                <span
                   style={{
-                    background: a.ok ? '#3B82F6' : '#475569',
-                    border: 'none',
+                    background: '#475569',
                     borderRadius: 8,
                     padding: '6px 14px',
-                    color: '#fff',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    opacity: a.ok ? 1 : 0.5,
+                    color: '#94A3B8',
+                    fontSize: 12,
+                    fontWeight: 500,
                   }}
                 >
-                  {a.ok ? 'Connect' : 'Limited'}
-                </button>
+                  Coming Soon
+                </span>
               </div>
             ))}
           </div>

@@ -406,6 +406,27 @@ describe('getSmartSuggestions', () => {
       expect(texts.length).toBe(unique.size);
     });
 
+    it('returns deterministic results for identical inputs', () => {
+      const params = {
+        frequencyMap: {
+          'Bathroom': makeEntry('Bathroom', { count: 10, hourBuckets: { [new Date().getHours()]: 5 } }),
+          "I'm thirsty": makeEntry("I'm thirsty", { count: 8 }),
+          'Need medication': makeEntry('Need medication', { count: 6 }),
+        },
+        allPhrases,
+        history: [],
+        medications: [],
+        pinnedPhrases: [],
+        locationPhrases,
+        count: 9,
+      };
+      const result1 = getSmartSuggestions(params);
+      const result2 = getSmartSuggestions(params);
+      const texts1 = result1.map((p) => p.t);
+      const texts2 = result2.map((p) => p.t);
+      expect(texts1).toEqual(texts2);
+    });
+
     it('places location phrases after pins but before regular suggestions', () => {
       const pinnedPhrases = [
         { text: 'Pinned phrase', icon: '📌' },

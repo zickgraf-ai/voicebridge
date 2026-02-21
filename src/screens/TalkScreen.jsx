@@ -62,15 +62,15 @@ export default function TalkScreen() {
   const [gridRows, setGridRows] = useState(3);
 
   useEffect(() => {
-    const measure = () => {
-      if (gridRef.current) {
-        const h = gridRef.current.clientHeight;
+    if (!gridRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect?.height;
+      if (h > 0) {
         setGridRows(Math.max(2, Math.floor(h / 85)));
       }
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    });
+    ro.observe(gridRef.current);
+    return () => ro.disconnect();
   }, []);
 
   // Unified speak function that handles both premium and device voices
@@ -235,6 +235,7 @@ export default function TalkScreen() {
             onTap={handleTap}
             color={catColor}
             pageSize={gridRows * 3}
+            category={cat}
           />
         )}
       </div>
