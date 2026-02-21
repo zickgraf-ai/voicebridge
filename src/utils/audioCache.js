@@ -5,6 +5,22 @@ const DB_NAME = 'voicebridge-audio';
 const DB_VERSION = 1;
 const STORE_NAME = 'audio';
 
+// In-memory set of known cached keys for synchronous lookups.
+// Populated by putAudio/getCacheStatus/getAllKeys.
+// Used by usePremiumSpeech to decide synchronously (within gesture context)
+// whether to fire Web Speech fallback or wait for cached premium audio.
+const _knownKeys = new Set();
+
+/**
+ * Synchronous check: is this key known to be cached?
+ * May return false for keys that ARE cached but haven't been loaded into
+ * memory yet (e.g. before getCacheStatus runs). That's safe — it just
+ * means Web Speech fallback fires, then gets cancelled when premium loads.
+ */
+export function hasCachedKeySync(key) {
+  return _knownKeys.has(key);
+}
+
 function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -51,7 +67,10 @@ export async function putAudio(key, blob) {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       const request = store.put(blob, key);
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        _knownKeys.add(key);
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   } catch {
@@ -80,7 +99,11 @@ export async function getAllKeys() {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
       const request = store.getAllKeys();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+        const keys = request.result || [];
+        for (const k of keys) _knownKeys.add(k);
+        resolve(keys);
+      };
       request.onerror = () => resolve([]);
     });
   } catch {
@@ -119,6 +142,7 @@ export async function clearAudio(voiceName) {
     if (!voiceName) {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       tx.objectStore(STORE_NAME).clear();
+      _knownKeys.clear();
       return;
     }
     const keys = await getAllKeys();
@@ -128,6 +152,7 @@ export async function clearAudio(voiceName) {
     for (const key of keys) {
       if (key.startsWith(prefix)) {
         store.delete(key);
+        _knownKeys.delete(key);
       }
     }
   } catch {

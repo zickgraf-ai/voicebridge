@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { getAudio, putAudio, getCacheStatus } from '../utils/audioCache';
+import { getAudio, putAudio, getCacheStatus, hasCachedKeySync } from '../utils/audioCache';
 import { ALL_STANDARD_PHRASES } from '../data/phrases';
 
 const MAX_CONCURRENT = 5;
@@ -154,16 +154,18 @@ export function usePremiumSpeech() {
     audio.volume = 1;
     audioRef.current = audio;
 
-    // When not premiumOnly, start Web Speech SYNCHRONOUSLY before any await.
-    // iOS Safari requires speechSynthesis.speak() to be in the synchronous
-    // user gesture handler chain — an await breaks this context.
-    // If premium audio is found in cache, we cancel Web Speech and play it.
-    if (!premiumOnly) {
+    // Build cache key for this phrase
+    const key = voiceName + ':' + text;
+
+    // When not premiumOnly, we need Web Speech as fallback. But only fire it
+    // if we DON'T have premium audio cached (sync check via in-memory Set).
+    // This prevents both voices playing simultaneously when premium is cached.
+    // If the sync check is wrong (key cached in IndexedDB but not yet in memory),
+    // the async getAudio below will still find it — worst case, Web Speech fires
+    // briefly then gets cancelled, which is better than silence on iOS Safari.
+    if (!premiumOnly && !hasCachedKeySync(key)) {
       speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
     }
-
-    // Try cached premium audio
-    const key = voiceName + ':' + text;
     const blob = await getAudio(key);
 
     if (blob) {
