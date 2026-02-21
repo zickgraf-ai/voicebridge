@@ -1,0 +1,107 @@
+import { createContext, useContext, useReducer, useEffect } from 'react';
+import { loadState, saveState } from '../utils/storage';
+
+const AppContext = createContext(null);
+
+const DEFAULT_PROFILE = {
+  name: 'Sarah',
+  dob: 'January 15, 1985',
+  address: '',
+  condition: 'Jaw Surgery Recovery',
+  familyMembers: [
+    { name: 'Jeff', relationship: 'Husband', photo: '\u{1F468}' },
+    { name: 'Mom', relationship: 'Mother', photo: '\u{1F469}' },
+    { name: 'Emily', relationship: 'Sister', photo: '\u{1F469}\u200D\u{1F9B0}' },
+  ],
+  medications: [
+    { name: 'Ibuprofen 600mg', schedule: 'Every 6 hours', nextDose: '2:00 PM' },
+    { name: 'Amoxicillin 500mg', schedule: 'Every 8 hours', nextDose: '4:00 PM' },
+  ],
+};
+
+const DEFAULT_SETTINGS = {
+  autoSpeak: true,
+  voiceURI: '',
+  voiceRate: 0.9,
+  buttonSize: 'large',
+  tabSize: 'xl',
+  painReminder: 120,
+  caregiverAlert: 6,
+};
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'SET_PROFILE':
+      return {
+        ...state,
+        profile: typeof action.payload === 'function'
+          ? action.payload(state.profile)
+          : action.payload,
+      };
+    case 'SET_SETTINGS':
+      return {
+        ...state,
+        settings: typeof action.payload === 'function'
+          ? action.payload(state.settings)
+          : action.payload,
+      };
+    case 'ADD_HISTORY': {
+      const entry = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        ...action.payload,
+      };
+      return {
+        ...state,
+        history: [entry, ...state.history],
+      };
+    }
+    case 'CLEAR_HISTORY':
+      return { ...state, history: [] };
+    default:
+      return state;
+  }
+}
+
+function loadInitialState() {
+  return {
+    profile: loadState('profile', DEFAULT_PROFILE),
+    settings: loadState('settings', DEFAULT_SETTINGS),
+    history: loadState('history', []),
+  };
+}
+
+export function AppProvider({ children }) {
+  const [state, dispatch] = useReducer(reducer, null, loadInitialState);
+
+  // Persist to localStorage on change
+  useEffect(() => {
+    saveState('profile', state.profile);
+  }, [state.profile]);
+
+  useEffect(() => {
+    saveState('settings', state.settings);
+  }, [state.settings]);
+
+  useEffect(() => {
+    saveState('history', state.history);
+  }, [state.history]);
+
+  const setProfile = (payload) => dispatch({ type: 'SET_PROFILE', payload });
+  const setSettings = (payload) => dispatch({ type: 'SET_SETTINGS', payload });
+  const addHistory = (entry) => dispatch({ type: 'ADD_HISTORY', payload: entry });
+
+  return (
+    <AppContext.Provider value={{ state, setProfile, setSettings, addHistory }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useAppContext() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useAppContext must be used within AppProvider');
+  return ctx;
+}
+
+export { DEFAULT_PROFILE, DEFAULT_SETTINGS };

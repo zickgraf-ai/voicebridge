@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0F172A">
+<title>VoiceBridge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body,#root{width:100%;height:100dvh;overflow:hidden;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#E2E8F0;touch-action:manipulation}
+button{font-family:inherit}
+input,select{font-family:inherit}
+::-webkit-scrollbar{display:none}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useCallback,useEffect,useRef}=React;
+
+const DEFAULT_PROFILE={name:"Sarah",dob:"January 15, 1985",address:"",condition:"Jaw Surgery Recovery",
+familyMembers:[{name:"Jeff",relationship:"Husband",photo:"👨"},{name:"Mom",relationship:"Mother",photo:"👩"},{name:"Emily",relationship:"Sister",photo:"👩‍🦰"}],
+medications:[{name:"Ibuprofen 600mg",schedule:"Every 6 hours",nextDose:"2:00 PM"},{name:"Amoxicillin 500mg",schedule:"Every 8 hours",nextDose:"4:00 PM"}]};
+const DEFAULT_SETTINGS={autoSpeak:true,voiceURI:"",voiceRate:0.9,buttonSize:"large",tabSize:"xl",painReminder:120,caregiverAlert:6};
+
+const RELATIONSHIPS=["Husband","Wife","Partner","Mom","Dad","Son","Daughter","Sister","Brother","Friend","Doctor","Nurse","Therapist","Aide","Grandma","Grandpa"];
+
+const TAB_SIZES={
+normal:{h:50,minW:52,icon:18,label:11,pad:"4px 10px",gap:2,radius:10},
+large:{h:64,minW:70,icon:24,label:13,pad:"6px 14px",gap:3,radius:12},
+xl:{h:80,minW:88,icon:32,label:16,pad:"8px 18px",gap:4,radius:14}
+};
+
+function tod(){const h=new Date().getHours();return h<12?"morning":h<17?"afternoon":"evening";}
+
+function getIdentityPhrase(profile){
+  const parts=[];
+  if(profile.name)parts.push("My name is "+profile.name);
+  if(profile.dob)parts.push("Date of birth "+profile.dob);
+  if(profile.address)parts.push("Address "+profile.address);
+  return parts.join(". ")+".";
+}
+
+const SMART={
+morning:[{t:"Good morning",i:"☀️"},{t:"Need medication",i:"💊"},{t:"I'm thirsty",i:"💧"},{t:"Bathroom",i:"🚻"},{t:"I need ice",i:"🧊"},{t:"Didn't sleep well",i:"😴"},{t:"I'm in pain",i:"🔴",a:"pain"},{t:"I want a smoothie",i:"🥤"},{t:"My Info",i:"🪪",a:"identity"}],
+afternoon:[{t:"I'm in pain",i:"🔴",a:"pain"},{t:"Medication time",i:"💊"},{t:"I'm thirsty",i:"💧"},{t:"Bathroom",i:"🚻"},{t:"I want broth",i:"🍜"},{t:"Need to rest",i:"😴"},{t:"Feeling better",i:"😊"},{t:"I need ice",i:"🧊"},{t:"My Info",i:"🪪",a:"identity"}],
+evening:[{t:"Evening meds",i:"💊"},{t:"I'm thirsty",i:"💧"},{t:"Bathroom",i:"🚻"},{t:"I want a shake",i:"🥤"},{t:"Watch TV",i:"📺"},{t:"Adjust pillow",i:"🛏️"},{t:"Mouth rinse",i:"🪥"},{t:"I'm in pain",i:"🔴",a:"pain"},{t:"My Info",i:"🪪",a:"identity"}]
+};
+
+const BUILDERS={
+"I want":{i:"👉",s:[{t:"water",i:"💧"},{t:"ice water",i:"🧊"},{t:"a smoothie",i:"🥤"},{t:"broth",i:"🍜"},{t:"protein shake",i:"🥛"},{t:"yogurt",i:"🥣"},{t:"applesauce",i:"🍎"},{t:"juice",i:"🧃"},{t:"warm tea",i:"🍵"},{t:"ice cream",i:"🍦"},{t:"pudding",i:"🍮"},{t:"soup",i:"🥣"},{t:"to rest",i:"😴"},{t:"to watch TV",i:"📺"},{t:"my phone",i:"📱"},{t:"a blanket",i:"🧣"},{t:"a hug",i:"🤗"},{t:"to go outside",i:"🌳"}]},
+"I need":{i:"🆘",s:[{t:"water",i:"💧"},{t:"medication",i:"💊"},{t:"ice",i:"🧊"},{t:"help",i:"🆘"},{t:"the bathroom",i:"🚻"},{t:"mouth rinse",i:"🪥"},{t:"a tissue",i:"🤧"},{t:"pillow adjusted",i:"🛏️"},{t:"pain relief",i:"😣"},{t:"to spit",i:"🚰"},{t:"heating pad",i:"♨️"},{t:"to sit up",i:"🪑"},{t:"privacy",i:"🚪"},{t:"the nurse",i:"👩‍⚕️"},{t:"the doctor",i:"👨‍⚕️"}]},
+"I feel":{i:"💭",s:[{t:"pain",i:"🔴"},{t:"better",i:"😊"},{t:"nauseous",i:"🤢"},{t:"dizzy",i:"💫"},{t:"cold",i:"🥶"},{t:"hot",i:"🥵"},{t:"scared",i:"😨"},{t:"frustrated",i:"😤"},{t:"tired",i:"😴"},{t:"anxious",i:"😰"},{t:"hungry",i:"😋"},{t:"grateful",i:"🥹"}]},
+"Please call":{i:"📞",s:[{t:"Jeff",i:"👨"},{t:"Mom",i:"👩"},{t:"Emily",i:"👩‍🦰"},{t:"Dr. Martinez",i:"👨‍⚕️"},{t:"Nurse Kim",i:"👩‍⚕️"},{t:"my friend",i:"👤"}]},
+"Can you":{i:"🙏",s:[{t:"get me water",i:"💧"},{t:"adjust pillow",i:"🛏️"},{t:"turn on TV",i:"📺"},{t:"turn off light",i:"💡"},{t:"open window",i:"🪟"},{t:"get a blanket",i:"🧣"},{t:"help me sit up",i:"🪑"},{t:"close the door",i:"🚪"},{t:"get the nurse",i:"👩‍⚕️"}]}
+};
+
+const CATS_DATA={
+quick:[{t:"Yes",i:"✅"},{t:"No",i:"❌"},{t:"Maybe",i:"🤔"},{t:"Please",i:"🙏"},{t:"Thank you",i:"💛"},{t:"Help!",i:"🆘"},{t:"Wait",i:"✋"},{t:"Come here",i:"👋"},{t:"Bathroom",i:"🚻"},{t:"Repeat that",i:"🔄"},{t:"Stop",i:"🛑"},{t:"Don't know",i:"🤷"}],
+medical:[{t:"My Info",i:"🪪",a:"identity"},{t:"I'm in pain",i:"🔴",a:"pain"},{t:"Need medication",i:"💊"},{t:"Call the doctor",i:"📞"},{t:"Feel nauseous",i:"🤢"},{t:"I need ice",i:"🧊"},{t:"Jaw feels stiff",i:"😣"},{t:"Hard to breathe",i:"😰"},{t:"Mouth rinse",i:"🪥"},{t:"Swelling worse",i:"😟"},{t:"I feel dizzy",i:"💫"},{t:"Pain is better",i:"📉"}],
+food:[{t:"I'm hungry",i:"😋"},{t:"I'm thirsty",i:"💧"},{t:"Water",i:"💧"},{t:"Ice water",i:"🧊"},{t:"Smoothie",i:"🥤"},{t:"Warm broth",i:"🍜"},{t:"Protein shake",i:"🥛"},{t:"Applesauce",i:"🍎"},{t:"Yogurt",i:"🥣"},{t:"Juice",i:"🧃"},{t:"Warm tea",i:"🍵"},{t:"Ice cream",i:"🍦"},{t:"Pudding",i:"🍮"},{t:"Soup",i:"🥣"},{t:"Too hot",i:"🌡️"},{t:"Too cold",i:"❄️"},{t:"I'm full",i:"✋"},{t:"Not that",i:"🙅"}],
+comfort:[{t:"I need help",i:"🆘"},{t:"Bathroom",i:"🚻"},{t:"Adjust pillow",i:"🛏️"},{t:"I'm cold",i:"🥶"},{t:"I'm hot",i:"🥵"},{t:"Turn on TV",i:"📺"},{t:"Light off",i:"💡"},{t:"Open window",i:"🪟"},{t:"Blanket",i:"🧣"},{t:"Sit me up",i:"🪑"},{t:"Heating pad",i:"♨️"},{t:"Want to walk",i:"🚶"}],
+people:[{t:"Call Jeff",i:"👨"},{t:"Call Mom",i:"👩"},{t:"Call Emily",i:"👩‍🦰"},{t:"Where's Jeff?",i:"❓"},{t:"I love you",i:"❤️"},{t:"Can Mom visit?",i:"🏠"},{t:"Thank you",i:"🙏"},{t:"Please stay",i:"🤝"},{t:"Need privacy",i:"🚪"}],
+emotions:[{t:"I'm scared",i:"😨"},{t:"Frustrated",i:"😤"},{t:"I'm sad",i:"😢"},{t:"Feel better",i:"😊"},{t:"Grateful",i:"🥹"},{t:"Bored",i:"😐"},{t:"Tired",i:"😴"},{t:"Anxious",i:"😰"},{t:"I'm okay",i:"👌"},{t:"Need a hug",i:"🤗"},{t:"Leave me alone",i:"🙅"},{t:"Hopeful",i:"🌟"}]
+};
+
+const CATS=[
+{id:"smart",l:"Smart",i:"✨",c:"#8B5CF6"},{id:"build",l:"Build",i:"🔗",c:"#F59E0B"},
+{id:"quick",l:"Quick",i:"⚡",c:"#EAB308"},{id:"medical",l:"Med",i:"🏥",c:"#EF4444"},
+{id:"food",l:"Food",i:"🍽️",c:"#10B981"},{id:"comfort",l:"Comfort",i:"🛋️",c:"#3B82F6"},
+{id:"people",l:"People",i:"👥",c:"#EC4899"},{id:"emotions",l:"Feel",i:"💭",c:"#A855F7"}
+];
+
+function useVoices(){
+const[voices,setVoices]=useState([]);
+useEffect(()=>{
+const load=()=>{const all=window.speechSynthesis?.getVoices()||[];
+const good=all.filter(v=>{const n=v.name.toLowerCase();const en=v.lang.startsWith("en");
+return en&&(n.includes("google")||n.includes("samantha")||n.includes("siri")||n.includes("alex")||n.includes("karen")||n.includes("daniel")||v.default);});
+const en=all.filter(v=>v.lang.startsWith("en"));setVoices(good.length>0?good:en.length>0?en:all);};
+load();window.speechSynthesis?.addEventListener("voiceschanged",load);
+return()=>window.speechSynthesis?.removeEventListener("voiceschanged",load);},[]);
+return voices;}
+
+function speak(text,voices,settings){
+if(!window.speechSynthesis||!text)return;window.speechSynthesis.cancel();
+const u=new SpeechSynthesisUtterance(text);u.rate=settings.voiceRate||0.9;
+const v=voices.find(x=>x.voiceURI===settings.voiceURI)||voices[0];
+if(v)u.voice=v;window.speechSynthesis.speak(u);}
+
+// ─── SPEECH BAR ───
+function SpeechBar({text,setText,onSpeak,onClear,autoSpeak,editing,setEditing}){
+const ref=useRef(null);
+useEffect(()=>{if(editing&&ref.current){ref.current.focus();ref.current.setSelectionRange(9999,9999);}},[editing]);
+const has=text&&text.trim().length>0;
+return(
+<div style={{background:has?"linear-gradient(135deg,#1E3A5F,#2563EB)":"#1E293B",borderRadius:14,padding:"8px 12px",display:"flex",alignItems:"center",gap:8,height:52,flexShrink:0,border:editing?"2px solid #F59E0B":has?"2px solid #3B82F6":"2px dashed #334155"}}>
+<div style={{flex:1,minWidth:0}}>
+{editing?(<input ref={ref} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();setEditing(false);onSpeak();}}} placeholder="Type your message..." style={{width:"100%",background:"transparent",border:"none",color:"#fff",fontSize:18,fontWeight:500,outline:"none",padding:0}}/>):(
+<div onClick={()=>setEditing(true)} style={{fontSize:18,color:has?"#fff":"#64748B",fontWeight:500,cursor:"text",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text||"Tap here to type..."}</div>)}
+</div>
+<div style={{display:"flex",gap:5,flexShrink:0}}>
+{has&&editing&&(<button onClick={()=>{setEditing(false);onSpeak();}} style={{background:"#10B981",border:"none",borderRadius:10,width:48,height:42,fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>▶️</button>)}
+{has&&!editing&&(<>
+{!autoSpeak?(<button onClick={onSpeak} style={{background:"#3B82F6",border:"none",borderRadius:10,width:52,height:42,fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 12px #3B82F644"}}>▶️</button>):(
+<button onClick={onSpeak} style={{background:"#334155",border:"none",borderRadius:8,width:40,height:38,fontSize:17,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>🔄</button>)}
+<button onClick={()=>setEditing(true)} style={{background:"#334155",border:"none",borderRadius:8,width:40,height:38,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>
+<button onClick={onClear} style={{background:"#33415566",border:"none",borderRadius:8,width:40,height:38,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#94A3B8"}}>✕</button>
+</>)}
+{!has&&!editing&&(<button onClick={()=>setEditing(true)} style={{background:"#334155",border:"none",borderRadius:8,width:40,height:38,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⌨️</button>)}
+</div></div>);}
+
+// ─── PHRASE BUTTON ───
+function Btn({text,icon,onTap,color}){
+const[flash,setFlash]=useState(false);
+const tap=()=>{setFlash(true);onTap();setTimeout(()=>setFlash(false),200);};
+return(<button onClick={tap} style={{background:flash?"linear-gradient(135deg,#10B981,#059669)":"linear-gradient(135deg,#1E293B,#334155)",border:"2px solid "+(flash?"#10B981":(color||"#475569")),borderRadius:14,padding:"6px 4px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,transition:"all 0.15s",transform:flash?"scale(0.95)":"scale(1)",width:"100%",height:"100%",overflow:"hidden"}}>
+<span style={{fontSize:28,lineHeight:1}}>{icon}</span>
+<span style={{fontSize:14,color:"#E2E8F0",fontWeight:500,textAlign:"center",lineHeight:1.2,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",wordBreak:"break-word",padding:"0 3px"}}>{text}</span>
+</button>);}
+
+// ─── PAIN ───
+function PainScale({onSelect}){
+return(<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6,width:"100%",height:"100%"}}>
+{[1,2,3,4,5,6,7,8,9,10].map(n=>(<button key={n} onClick={()=>onSelect("My pain is "+n+" out of 10")} style={{borderRadius:14,border:"none",cursor:"pointer",fontSize:32,fontWeight:700,color:"#fff",background:n<=3?"#10B981":n<=6?"#F59E0B":n<=8?"#F97316":"#EF4444",display:"flex",alignItems:"center",justifyContent:"center"}}>{n}</button>))}
+</div>);}
+
+// ─── CATEGORY BAR (CONFIGURABLE SIZE) ───
+function CatBar({active,onSelect,size}){
+const s=TAB_SIZES[size]||TAB_SIZES.xl;
+return(<div style={{display:"flex",gap:s.gap+2,flexShrink:0,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",padding:"2px 2px"}}>
+{CATS.map(c=>(<button key={c.id} onClick={()=>onSelect(c.id)} style={{
+background:active===c.id?c.c+"30":"#1E293B",
+border:"2px solid "+(active===c.id?c.c:"#33415500"),
+borderRadius:s.radius,
+padding:s.pad,
+cursor:"pointer",
+display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+flexShrink:0,
+minWidth:s.minW,
+minHeight:s.h,
+gap:s.gap,
+}}>
+<span style={{fontSize:s.icon,lineHeight:1}}>{c.i}</span>
+<span style={{fontSize:s.label,color:active===c.id?"#fff":"#94A3B8",fontWeight:active===c.id?700:500,whiteSpace:"nowrap",lineHeight:1}}>{c.l}</span>
+</button>))}
+</div>);}
+
+// ─── PAGINATED GRID ───
+function PhraseGrid({items,onTap,color,pageSize}){
+const[page,setPage]=useState(0);
+useEffect(()=>setPage(0),[items]);
+const total=Math.ceil(items.length/pageSize);
+const vis=items.slice(page*pageSize,page*pageSize+pageSize);
+return(<div style={{display:"flex",flexDirection:"column",width:"100%",height:"100%",gap:5}}>
+<div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridTemplateRows:"repeat("+Math.ceil(pageSize/3)+",1fr)",gap:6}}>
+{vis.map((p,i)=>(<Btn key={page+"-"+i} text={p.t} icon={p.i} color={color} onTap={()=>onTap(p)}/>))}
+</div>
+{total>1&&(<div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:12,height:26,flexShrink:0}}>
+<button onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0} style={{background:"none",border:"none",color:page===0?"#334155":"#94A3B8",fontSize:24,cursor:"pointer",padding:"0 12px"}}>‹</button>
+<div style={{display:"flex",gap:6}}>{Array.from({length:total},(_,i)=>(<div key={i} onClick={()=>setPage(i)} style={{width:i===page?20:8,height:8,borderRadius:4,background:i===page?color:"#475569",cursor:"pointer",transition:"all 0.2s"}}/>))}</div>
+<button onClick={()=>setPage(p=>Math.min(total-1,p+1))} disabled={page===total-1} style={{background:"none",border:"none",color:page===total-1?"#334155":"#94A3B8",fontSize:24,cursor:"pointer",padding:"0 12px"}}>›</button>
+</div>)}
+</div>);}
+
+// ─── BUILDER ───
+function BuilderView({onPhrase,gridRows}){
+const[starter,setStarter]=useState(null);
+const keys=Object.keys(BUILDERS);
+if(starter){return(<div style={{display:"flex",flexDirection:"column",width:"100%",height:"100%",gap:5}}>
+<div style={{display:"flex",alignItems:"center",gap:8,height:34,flexShrink:0}}>
+<button onClick={()=>setStarter(null)} style={{background:"#334155",border:"none",borderRadius:8,padding:"5px 14px",color:"#E2E8F0",fontSize:14,cursor:"pointer",fontWeight:600}}>← Back</button>
+<div style={{background:"#F59E0B22",border:"1px solid #F59E0B55",borderRadius:8,padding:"5px 14px",color:"#FCD34D",fontSize:15,fontWeight:600}}>{starter} ...</div>
+</div>
+<PhraseGrid items={BUILDERS[starter].s} onTap={(p)=>{onPhrase(starter+" "+p.t);setStarter(null);}} color="#F59E0B" pageSize={gridRows*3}/>
+</div>);}
+const ps=Math.min(keys.length,gridRows*3);
+return(<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridTemplateRows:"repeat("+Math.ceil(ps/3)+",1fr)",gap:6,width:"100%",height:"100%"}}>
+{keys.map(k=>(<button key={k} onClick={()=>setStarter(k)} style={{background:"linear-gradient(135deg,#F59E0B12,#F59E0B06)",border:"2px solid #F59E0B44",borderRadius:14,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4}}>
+<span style={{fontSize:28}}>{BUILDERS[k].i}</span>
+<span style={{fontSize:14,color:"#FCD34D",fontWeight:600,textAlign:"center"}}>{k}...</span>
+</button>))}
+</div>);}
+
+// ─── TALK SCREEN ───
+function TalkScreen({profile,settings,voices}){
+const[text,setText]=useState("");
+const[editing,setEditing]=useState(false);
+const[cat,setCat]=useState("smart");
+const[showPain,setShowPain]=useState(false);
+const gridRef=useRef(null);
+const[gridRows,setGridRows]=useState(3);
+
+useEffect(()=>{const measure=()=>{if(gridRef.current){const h=gridRef.current.clientHeight;setGridRows(Math.max(2,Math.floor(h/85)));}};measure();window.addEventListener("resize",measure);return()=>window.removeEventListener("resize",measure);},[]);
+
+const doSpeak=useCallback((t)=>speak(t||text,voices,settings),[text,voices,settings]);
+const setAndSpeak=useCallback((nt)=>{setText(nt);setShowPain(false);setEditing(false);if(settings.autoSpeak)speak(nt,voices,settings);},[settings,voices]);
+const tap=useCallback((p)=>{
+  if(p.a==="pain"){setShowPain(true);return;}
+  if(p.a==="identity"){setAndSpeak(getIdentityPhrase(profile));return;}
+  if(editing&&text.trim()){setText(text.trim()+" "+p.t);return;}
+  setAndSpeak(p.t);
+},[setAndSpeak,editing,text,profile]);
+
+const items=cat==="smart"?(SMART[tod()]||SMART.afternoon):(CATS_DATA[cat]||[]);
+const cc=CATS.find(c=>c.id===cat)?.c||"#3B82F6";
+
+return(<div style={{display:"flex",flexDirection:"column",height:"100%",padding:"6px 10px",gap:6,overflow:"hidden"}}>
+<SpeechBar text={text} setText={setText} onSpeak={()=>doSpeak()} onClear={()=>{setText("");setEditing(false);window.speechSynthesis?.cancel();}} autoSpeak={settings.autoSpeak} editing={editing} setEditing={setEditing}/>
+<CatBar active={cat} onSelect={id=>{setCat(id);setShowPain(false);}} size={settings.tabSize}/>
+<div ref={gridRef} style={{flex:1,overflow:"hidden",minHeight:0}}>
+{showPain?(<PainScale onSelect={setAndSpeak}/>):cat==="build"?(<BuilderView onPhrase={setAndSpeak} gridRows={gridRows}/>):(<PhraseGrid items={items} onTap={tap} color={cc} pageSize={gridRows*3}/>)}
+</div>
+</div>);}
+
+// ─── PROFILE ───
+function ProfileScreen({profile,setProfile,onDone}){
+const[step,setStep]=useState(0);
+const[name,setName]=useState(profile.name);
+const[dob,setDob]=useState(profile.dob);
+const[address,setAddress]=useState(profile.address);
+const[cond,setCond]=useState(profile.condition);
+const[fn,setFn]=useState("");const[fr,setFr]=useState("");
+const[mn,setMn]=useState("");const[ms,setMs]=useState("");
+const steps=["Identity","Family","Meds","Connect"];
+const inp={width:"100%",padding:"14px 16px",borderRadius:12,border:"2px solid #334155",background:"#0F172A",color:"#E2E8F0",fontSize:16,outline:"none",boxSizing:"border-box"};
+
+return(<div style={{padding:14,display:"flex",flexDirection:"column",height:"100%",gap:10,overflow:"hidden"}}>
+<div style={{display:"flex",gap:4,flexShrink:0}}>{steps.map((_,i)=><div key={i} style={{flex:1,height:5,borderRadius:3,background:i<=step?"#3B82F6":"#334155"}}/>)}</div>
+<div style={{textAlign:"center",flexShrink:0}}><h2 style={{color:"#F1F5F9",margin:0,fontSize:20}}>{["🪪","👥","💊","🔗"][step]} {steps[step]}</h2></div>
+<div style={{flex:1,overflow:"auto"}}>
+{step===0&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{background:"#3B82F611",border:"1px solid #3B82F633",borderRadius:10,padding:10,color:"#93C5FD",fontSize:13}}>🪪 Nurses often need your name, date of birth and address. Fill these in and tap "My Info" on the Talk screen to speak them automatically.</div>
+<div><div style={{color:"#94A3B8",fontSize:12,marginBottom:4}}>Patient Name</div><input style={inp} value={name} onChange={e=>setName(e.target.value)} placeholder="Full name"/></div>
+<div><div style={{color:"#94A3B8",fontSize:12,marginBottom:4}}>Date of Birth</div><input style={inp} value={dob} onChange={e=>setDob(e.target.value)} placeholder="e.g. January 15, 1985"/></div>
+<div><div style={{color:"#94A3B8",fontSize:12,marginBottom:4}}>Address</div><input style={inp} value={address} onChange={e=>setAddress(e.target.value)} placeholder="e.g. 123 Main St, Seattle WA 98101"/></div>
+<div><div style={{color:"#94A3B8",fontSize:12,marginBottom:4}}>Condition</div><input style={inp} value={cond} onChange={e=>setCond(e.target.value)} placeholder="Condition"/>
+<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:8}}>
+{["Jaw Surgery","Stroke","Post-Intubation","ALS","Autism"].map(c=>(<button key={c} onClick={()=>setCond(c+" Recovery")} style={{background:cond.includes(c)?"#3B82F622":"#1E293B",border:"1px solid "+(cond.includes(c)?"#3B82F6":"#475569"),borderRadius:12,padding:"8px 14px",color:"#E2E8F0",fontSize:14,cursor:"pointer"}}>{c}</button>))}
+</div></div>
+{(name||dob||address)&&(<div style={{background:"#1E293B",borderRadius:12,padding:12,border:"1px solid #334155"}}>
+<div style={{color:"#94A3B8",fontSize:11,marginBottom:4}}>Preview — "My Info" will say:</div>
+<div style={{color:"#E2E8F0",fontSize:14,fontStyle:"italic"}}>{getIdentityPhrase({name,dob,address})}</div>
+</div>)}
+</div>)}
+{step===1&&(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+{profile.familyMembers.map((f,i)=>(<div key={i} style={{background:"#1E293B",border:"1px solid #475569",borderRadius:12,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#E2E8F0",fontSize:15}}>{f.photo} {f.name} — <span style={{color:"#94A3B8"}}>{f.relationship}</span></span><button onClick={()=>setProfile(p=>({...p,familyMembers:p.familyMembers.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:18,padding:"4px 8px"}}>✕</button></div>))}
+<div style={{background:"#0F172A",borderRadius:12,padding:14,border:"1px dashed #475569",display:"flex",flexDirection:"column",gap:10}}>
+<input style={inp} value={fn} onChange={e=>setFn(e.target.value)} placeholder="Name"/>
+<div>
+<div style={{color:"#94A3B8",fontSize:12,marginBottom:6}}>Relationship — tap or type</div>
+<div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+{RELATIONSHIPS.map(r=>(<button key={r} onClick={()=>setFr(r)} style={{background:fr===r?"#3B82F622":"#1E293B",border:"1px solid "+(fr===r?"#3B82F6":"#475569"),borderRadius:10,padding:"6px 12px",color:fr===r?"#93C5FD":"#E2E8F0",fontSize:13,cursor:"pointer",fontWeight:fr===r?600:400}}>{r}</button>))}
+</div>
+<input style={inp} value={fr} onChange={e=>setFr(e.target.value)} placeholder="Or type custom..."/>
+</div>
+<button onClick={()=>{if(fn&&fr){setProfile(p=>({...p,familyMembers:[...p.familyMembers,{name:fn,relationship:fr,photo:"👤"}]}));setFn("");setFr("");}}} style={{background:fn&&fr?"#10B981":"#475569",border:"none",borderRadius:12,padding:12,color:"#fff",fontWeight:600,cursor:fn&&fr?"pointer":"default",fontSize:15,opacity:fn&&fr?1:0.5}}>+ Add {fn?fn:""}{fn&&fr?" ("+fr+")":""}</button>
+</div>
+</div>)}
+{step===2&&(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+{profile.medications.map((m,i)=>(<div key={i} style={{background:"#1E293B",borderRadius:12,padding:"10px 14px",border:"1px solid #475569",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{color:"#E2E8F0",fontSize:14}}>💊 {m.name}</div><div style={{color:"#94A3B8",fontSize:12}}>{m.schedule}</div></div><button onClick={()=>setProfile(p=>({...p,medications:p.medications.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#EF4444",cursor:"pointer",fontSize:18,padding:"4px 8px"}}>✕</button></div>))}
+<div style={{background:"#0F172A",borderRadius:12,padding:14,border:"1px dashed #475569",display:"flex",flexDirection:"column",gap:10}}>
+<input style={inp} value={mn} onChange={e=>setMn(e.target.value)} placeholder="Medication"/>
+<input style={inp} value={ms} onChange={e=>setMs(e.target.value)} placeholder="Schedule (e.g. Every 6 hours)"/>
+<button onClick={()=>{if(mn){setProfile(p=>({...p,medications:[...p.medications,{name:mn,schedule:ms,nextDose:"TBD"}]}));setMn("");setMs("");}}} style={{background:mn?"#10B981":"#475569",border:"none",borderRadius:12,padding:12,color:"#fff",fontWeight:600,cursor:mn?"pointer":"default",fontSize:15,opacity:mn?1:0.5}}>+ Add{mn?" "+mn:""}</button>
+</div>
+</div>)}
+{step===3&&(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+{[{n:"Google Contacts",i:"👥",ok:true},{n:"Google Calendar",i:"📅",ok:true},{n:"Apple Health",i:"❤️‍🩹",ok:true},{n:"Facebook",i:"👤",ok:false}].map(a=>(<div key={a.n} style={{background:"#1E293B",borderRadius:12,padding:12,border:"1px solid #475569",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:22}}>{a.i}</span><span style={{flex:1,color:"#E2E8F0",fontSize:14}}>{a.n}</span><button style={{background:a.ok?"#3B82F6":"#475569",border:"none",borderRadius:8,padding:"6px 14px",color:"#fff",fontSize:13,cursor:"pointer",opacity:a.ok?1:0.5}}>{a.ok?"Connect":"Limited"}</button></div>))}
+</div>)}
+</div>
+<div style={{display:"flex",gap:8,flexShrink:0}}>
+{step>0&&<button onClick={()=>setStep(s=>s-1)} style={{background:"#334155",border:"none",borderRadius:12,padding:"14px 16px",color:"#fff",fontSize:16,fontWeight:600,cursor:"pointer",flex:1}}>Back</button>}
+<button onClick={()=>{if(step===0)setProfile(p=>({...p,name,dob,address,condition:cond}));if(step<3)setStep(s=>s+1);else onDone();}} style={{background:"linear-gradient(135deg,#3B82F6,#2563EB)",border:"none",borderRadius:12,padding:"14px 16px",color:"#fff",fontSize:16,fontWeight:600,cursor:"pointer",flex:1}}>{step===3?"✨ Done":"Next →"}</button>
+</div></div>);}
+
+// ─── SETTINGS ───
+function SettingsScreen({settings,setSettings,voices}){
+const Seg=({label,options,value,onChange})=>(<div style={{background:"#1E293B",borderRadius:12,padding:12,border:"1px solid #334155"}}><div style={{color:"#94A3B8",fontSize:13,marginBottom:8}}>{label}</div><div style={{display:"flex",gap:5}}>{options.map(o=>(<button key={o.l} onClick={()=>onChange(o.v)} style={{flex:1,padding:"10px 6px",borderRadius:10,border:"none",cursor:"pointer",background:value===o.v?"#3B82F6":"#0F172A",color:value===o.v?"#fff":"#94A3B8",fontSize:14,fontWeight:600}}>{o.l}</button>))}</div></div>);
+
+return(<div style={{padding:14,display:"flex",flexDirection:"column",height:"100%",gap:10,overflow:"auto"}}>
+<h2 style={{color:"#F1F5F9",margin:0,fontSize:20}}>⚙️ Settings</h2>
+<div style={{background:"#1E293B",borderRadius:12,padding:14,border:"1px solid #334155",display:"flex",alignItems:"center",gap:10}}>
+<div style={{flex:1}}><div style={{color:"#E2E8F0",fontSize:16,fontWeight:500}}>🔊 Auto-speak on tap</div><div style={{color:"#94A3B8",fontSize:12}}>Speaks when you tap a button</div></div>
+<div onClick={()=>setSettings(s=>({...s,autoSpeak:!s.autoSpeak}))} style={{width:52,height:28,borderRadius:14,cursor:"pointer",background:settings.autoSpeak?"#10B981":"#475569",position:"relative"}}><div style={{width:24,height:24,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:settings.autoSpeak?26:2,transition:"all 0.2s"}}/></div>
+</div>
+<div style={{background:"#1E293B",borderRadius:12,padding:12,border:"1px solid #334155"}}>
+<div style={{color:"#94A3B8",fontSize:13,marginBottom:8}}>🗣️ Voice</div>
+<select value={settings.voiceURI} onChange={e=>setSettings(s=>({...s,voiceURI:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #334155",background:"#0F172A",color:"#E2E8F0",fontSize:14,outline:"none"}}>
+{voices.map((v,i)=><option key={i} value={v.voiceURI}>{v.name}{v.default?" ★":""}</option>)}
+</select></div>
+<Seg label="🔊 Speed" value={settings.voiceRate} onChange={v=>setSettings(s=>({...s,voiceRate:v}))} options={[{l:"Slow",v:0.7},{l:"Normal",v:0.9},{l:"Fast",v:1.1}]}/>
+<button onClick={()=>speak("Hello, I need some water please.",voices,settings)} style={{background:"linear-gradient(135deg,#10B981,#059669)",border:"none",borderRadius:12,padding:"12px",color:"#fff",fontSize:15,fontWeight:600,cursor:"pointer"}}>🔊 Test Voice</button>
+<Seg label="📂 Category Tab Size" value={settings.tabSize} onChange={v=>setSettings(s=>({...s,tabSize:v}))} options={[{l:"Normal",v:"normal"},{l:"Large",v:"large"},{l:"XL",v:"xl"}]}/>
+<Seg label="📐 Button Size" value={settings.buttonSize} onChange={v=>setSettings(s=>({...s,buttonSize:v}))} options={[{l:"Normal",v:"normal"},{l:"Large",v:"large"}]}/>
+<Seg label="⏰ Pain Reminder" value={settings.painReminder} onChange={v=>setSettings(s=>({...s,painReminder:v}))} options={[{l:"1hr",v:60},{l:"2hr",v:120},{l:"4hr",v:240},{l:"Off",v:0}]}/>
+<Seg label="📱 Alert Caregiver" value={settings.caregiverAlert} onChange={v=>setSettings(s=>({...s,caregiverAlert:v}))} options={[{l:"Pain 5+",v:5},{l:"6+",v:6},{l:"7+",v:7},{l:"Off",v:0}]}/>
+</div>);}
+
+// ─── CARE ───
+function CareScreen({profile}){
+const[tab,setTab]=useState("overview");
+const card={background:"#1E293B",borderRadius:12,padding:12,border:"1px solid #334155"};
+return(<div style={{padding:12,display:"flex",flexDirection:"column",height:"100%",gap:8,overflow:"hidden"}}>
+<div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+<div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#3B82F6,#8B5CF6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>👩</div>
+<div><div style={{color:"#F1F5F9",fontSize:17,fontWeight:600}}>{profile.name}</div><div style={{color:"#94A3B8",fontSize:12}}>{profile.condition}</div></div>
+</div>
+<div style={{display:"flex",gap:4,flexShrink:0}}>
+{["overview","activity"].map(t=><button key={t} onClick={()=>setTab(t)} style={{background:tab===t?"#3B82F6":"#1E293B",border:"none",borderRadius:10,padding:"8px 16px",color:tab===t?"#fff":"#94A3B8",fontSize:14,fontWeight:tab===t?600:400,cursor:"pointer"}}>{t[0].toUpperCase()+t.slice(1)}</button>)}
+</div>
+<div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column",gap:8}}>
+{tab==="overview"&&(<><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+{[{i:"📊",v:"47",l:"Phrases",c:"#3B82F6"},{i:"😊",v:"4/10",l:"Pain",c:"#10B981"},{i:"💊",v:"2:00",l:"Next Med",c:"#8B5CF6"},{i:"🍽️",v:"38%",l:"Food",c:"#F59E0B"}].map((s,j)=>(<div key={j} style={{...card,textAlign:"center"}}><span style={{fontSize:20}}>{s.i}</span><div style={{color:s.c,fontSize:24,fontWeight:700}}>{s.v}</div><div style={{color:"#94A3B8",fontSize:11}}>{s.l}</div></div>))}
+</div>
+<div style={{background:"#EF444422",border:"1px solid #EF444444",borderRadius:10,padding:10,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>⚠️</span><div style={{color:"#FCA5A5",fontSize:13}}>Pain ↑ 4/10 at 1:48 PM</div></div></>)}
+{tab==="activity"&&<div style={card}>
+{[{time:"2:34",text:"Need medication",c:"#EF4444"},{time:"2:15",text:"I want broth",c:"#10B981"},{time:"1:48",text:"Pain 4/10",c:"#EF4444"},{time:"1:30",text:"Feeling better",c:"#3B82F6"},{time:"12:55",text:"Bathroom",c:"#3B82F6"},{time:"12:20",text:"Adjust pillow",c:"#3B82F6"},{time:"11:45",text:"Smoothie",c:"#10B981"}].map((c,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:i<6?"1px solid #334155":"none"}}><div style={{width:8,height:8,borderRadius:"50%",background:c.c}}/><span style={{flex:1,color:"#E2E8F0",fontSize:14}}>{c.text}</span><span style={{color:"#64748B",fontSize:12}}>{c.time}</span></div>))}
+</div>}
+</div></div>);}
+
+// ─── APP ───
+function App(){
+const[view,setView]=useState("talk");
+const[profile,setProfile]=useState(DEFAULT_PROFILE);
+const[settings,setSettings]=useState(DEFAULT_SETTINGS);
+const voices=useVoices();
+
+return(<div style={{width:"100%",maxWidth:700,height:"100dvh",margin:"0 auto",background:"#0F172A",display:"flex",flexDirection:"column",overflow:"hidden",position:"fixed",top:0,left:0,right:0,bottom:0}}>
+<div style={{padding:"6px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,height:36,borderBottom:"1px solid #1E293B"}}>
+<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>💬</span><span style={{fontWeight:700,fontSize:16,color:"#F1F5F9"}}>VoiceBridge</span></div>
+{settings.autoSpeak&&<span style={{fontSize:10,color:"#10B981",fontWeight:600}}>🔊 AUTO</span>}
+</div>
+<div style={{flex:1,overflow:"hidden",minHeight:0}}>
+{view==="talk"&&<TalkScreen profile={profile} settings={settings} voices={voices}/>}
+{view==="profile"&&<ProfileScreen profile={profile} setProfile={setProfile} onDone={()=>setView("talk")}/>}
+{view==="settings"&&<SettingsScreen settings={settings} setSettings={setSettings} voices={voices}/>}
+{view==="care"&&<CareScreen profile={profile}/>}
+</div>
+<div style={{borderTop:"1px solid #334155",padding:"4px 8px 6px",display:"flex",gap:3,flexShrink:0,height:52,background:"#0F172A"}}>
+{[{id:"talk",icon:"💬",label:"Talk"},{id:"profile",icon:"👤",label:"Profile"},{id:"settings",icon:"⚙️",label:"Settings"},{id:"care",icon:"📊",label:"Care"}].map(n=>(<button key={n.id} onClick={()=>setView(n.id)} style={{background:view===n.id?"#3B82F6":"transparent",border:"none",borderRadius:10,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,flex:1,color:view===n.id?"#fff":"#64748B"}}><span style={{fontSize:20}}>{n.icon}</span><span style={{fontSize:10,fontWeight:view===n.id?600:400}}>{n.label}</span></button>))}
+</div>
+</div>);}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
