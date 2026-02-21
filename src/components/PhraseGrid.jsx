@@ -41,7 +41,9 @@ export default function PhraseGrid({ items, onTap, color, pageSize, category }) 
         ))}
       </div>
       {total > 1 && (
-        <div
+        <nav
+          role="navigation"
+          aria-label="Phrase pages"
           style={{
             display: 'flex',
             gap: 6,
@@ -51,6 +53,7 @@ export default function PhraseGrid({ items, onTap, color, pageSize, category }) 
           {page > 0 && (
             <button
               onClick={() => setPage((p) => p - 1)}
+              aria-label={`Previous page, page ${page} of ${total}`}
               style={{
                 flex: 1,
                 minHeight: 48,
@@ -72,6 +75,7 @@ export default function PhraseGrid({ items, onTap, color, pageSize, category }) 
           )}
           <button
             onClick={() => setPage((p) => (p + 1) % total)}
+            aria-label={page < total - 1 ? `Next page, page ${page + 2} of ${total}` : `Back to first page`}
             style={{
               flex: 2,
               minHeight: 48,
@@ -93,7 +97,7 @@ export default function PhraseGrid({ items, onTap, color, pageSize, category }) 
               {page + 1}/{total}
             </span>
           </button>
-        </div>
+        </nav>
       )}
     </div>
   );

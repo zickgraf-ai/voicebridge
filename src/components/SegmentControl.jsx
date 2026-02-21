@@ -1,4 +1,9 @@
-export default function SegmentControl({ label, options, value, onChange }) {
+import { memo } from 'react';
+
+export default memo(function SegmentControl({ label, options, value, onChange }) {
+  // Strip emoji prefix for aria-label (e.g. "🔊 Speed" → "Speed")
+  const cleanLabel = label.replace(/^[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier_Base}\p{Emoji_Component}\uFE0F\u200D]+\s*/u, '');
+
   return (
     <div
       style={{
@@ -8,13 +13,15 @@ export default function SegmentControl({ label, options, value, onChange }) {
         border: '1px solid #334155',
       }}
     >
-      <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
+      <div id={`segment-${cleanLabel}`} style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
         {label}
       </div>
-      <div style={{ display: 'flex', gap: 5 }}>
+      <div role="radiogroup" aria-labelledby={`segment-${cleanLabel}`} style={{ display: 'flex', gap: 5 }}>
         {options.map((o) => (
           <button
             key={o.label}
+            role="radio"
+            aria-checked={value === o.value}
             onClick={() => onChange(o.value)}
             style={{
               flex: 1,
@@ -34,4 +41,4 @@ export default function SegmentControl({ label, options, value, onChange }) {
       </div>
     </div>
   );
-}
+});

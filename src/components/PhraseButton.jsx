@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect, memo } from 'react';
 
-export default function PhraseButton({ text, icon, onTap, color }) {
+export default memo(function PhraseButton({ text, icon, onTap, color }) {
   const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    if (!flash) return;
+    const timer = setTimeout(() => setFlash(false), 200);
+    return () => clearTimeout(timer);
+  }, [flash]);
 
   const handleTap = () => {
     setFlash(true);
     onTap();
-    setTimeout(() => setFlash(false), 200);
   };
 
   return (
     <button
       onClick={handleTap}
+      aria-label={text}
       style={{
         background: flash
           ? 'linear-gradient(135deg, #10B981, #059669)'
@@ -52,4 +58,4 @@ export default function PhraseButton({ text, icon, onTap, color }) {
       </span>
     </button>
   );
-}
+});

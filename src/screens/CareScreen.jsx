@@ -147,10 +147,12 @@ export default function CareScreen() {
       </div>
 
       {/* Tab toggle */}
-      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+      <div role="tablist" aria-label="Care dashboard tabs" style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
         {['overview', 'activity', 'pins'].map((t) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
             onClick={() => setTab(t)}
             style={{
               background: tab === t ? '#3B82F6' : '#1E293B',
@@ -170,6 +172,8 @@ export default function CareScreen() {
 
       {/* Content */}
       <div
+        role="tabpanel"
+        aria-label={tab === 'pins' ? 'Pinned' : tab[0].toUpperCase() + tab.slice(1)}
         style={{
           flex: 1,
           overflow: 'auto',
@@ -232,6 +236,7 @@ export default function CareScreen() {
               const isAboveThreshold = !isNaN(painNum) && painNum >= threshold;
               return isAboveThreshold ? (
                 <div
+                  role="alert"
                   style={{
                     background: 'linear-gradient(135deg, #DC262622, #EF444433)',
                     border: '2px solid #EF4444',
@@ -367,6 +372,7 @@ export default function CareScreen() {
                     </div>
                   </div>
                   <button
+                    aria-label={`Remove pinned phrase: ${pin.text}`}
                     onClick={() => handleRemovePin(i)}
                     style={{
                       background: '#EF444433',

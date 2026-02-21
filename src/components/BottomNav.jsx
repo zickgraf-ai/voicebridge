@@ -7,7 +7,9 @@ const TABS = [
 
 export default function BottomNav({ active, onSelect }) {
   return (
-    <div
+    <nav
+      role="tablist"
+      aria-label="Main navigation"
       style={{
         padding: `6px 8px calc(env(safe-area-inset-bottom, 0px) + 6px)`,
         display: 'flex',
@@ -21,6 +23,8 @@ export default function BottomNav({ active, onSelect }) {
         return (
           <button
             key={n.id}
+            role="tab"
+            aria-selected={isActive}
             onClick={() => onSelect(n.id)}
             style={{
               background: 'transparent',
@@ -59,6 +63,6 @@ export default function BottomNav({ active, onSelect }) {
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }

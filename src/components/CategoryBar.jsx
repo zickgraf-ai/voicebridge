@@ -1,10 +1,13 @@
+import { memo } from 'react';
 import { CATEGORIES, TAB_SIZES } from '../data/phrases';
 
-export default function CategoryBar({ active, onSelect, size }) {
+export default memo(function CategoryBar({ active, onSelect, size }) {
   const s = TAB_SIZES[size] || TAB_SIZES.xl;
 
   return (
     <div
+      role="tablist"
+      aria-label="Phrase categories"
       style={{
         display: 'flex',
         gap: s.gap + 2,
@@ -18,6 +21,8 @@ export default function CategoryBar({ active, onSelect, size }) {
       {CATEGORIES.map((c) => (
         <button
           key={c.id}
+          role="tab"
+          aria-selected={active === c.id}
           onClick={() => onSelect(c.id)}
           style={{
             background: active === c.id ? c.color + '30' : '#1E293B',
@@ -51,4 +56,4 @@ export default function CategoryBar({ active, onSelect, size }) {
       ))}
     </div>
   );
-}
+});

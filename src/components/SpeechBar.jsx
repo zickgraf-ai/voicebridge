@@ -1,6 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, memo } from 'react';
 
-export default function SpeechBar({
+export default memo(function SpeechBar({
   text,
   setText,
   onSpeak,
@@ -22,6 +22,8 @@ export default function SpeechBar({
 
   return (
     <div
+      role="region"
+      aria-label="Speech bar"
       style={{
         background: has
           ? 'linear-gradient(135deg, #1E3A5F, #2563EB)'
@@ -54,6 +56,7 @@ export default function SpeechBar({
               }
             }}
             placeholder="Type your message..."
+            aria-label="Type your message"
             style={{
               width: '100%',
               background: 'transparent',
@@ -67,7 +70,11 @@ export default function SpeechBar({
           />
         ) : (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label={has ? `Current message: ${text}. Tap to edit` : 'Tap here to type a message'}
             onClick={() => setEditing(true)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setEditing(true); }}
             style={{
               fontSize: 18,
               color: has ? '#fff' : '#64748B',
@@ -78,7 +85,7 @@ export default function SpeechBar({
               whiteSpace: 'nowrap',
             }}
           >
-            {text || 'Tap here to type...'}
+            <span aria-live="polite">{text || 'Tap here to type...'}</span>
           </div>
         )}
       </div>
@@ -89,6 +96,7 @@ export default function SpeechBar({
               setEditing(false);
               onSpeak();
             }}
+            aria-label="Speak message"
             style={{
               background: '#10B981',
               border: 'none',
@@ -110,6 +118,7 @@ export default function SpeechBar({
             {!autoSpeak ? (
               <button
                 onClick={onSpeak}
+                aria-label="Speak message"
                 style={{
                   background: '#3B82F6',
                   border: 'none',
@@ -129,6 +138,7 @@ export default function SpeechBar({
             ) : (
               <button
                 onClick={onSpeak}
+                aria-label="Replay message"
                 style={{
                   background: '#334155',
                   border: 'none',
@@ -147,6 +157,7 @@ export default function SpeechBar({
             )}
             <button
               onClick={() => setEditing(true)}
+              aria-label="Edit message"
               style={{
                 background: '#334155',
                 border: 'none',
@@ -164,6 +175,7 @@ export default function SpeechBar({
             </button>
             <button
               onClick={onClear}
+              aria-label="Clear message"
               style={{
                 background: '#33415566',
                 border: 'none',
@@ -185,6 +197,7 @@ export default function SpeechBar({
         {!has && !editing && (
           <button
             onClick={() => setEditing(true)}
+            aria-label="Open keyboard"
             style={{
               background: '#334155',
               border: 'none',
@@ -204,4 +217,4 @@ export default function SpeechBar({
       </div>
     </div>
   );
-}
+});

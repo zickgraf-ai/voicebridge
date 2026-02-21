@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
 import { usePremiumSpeech } from '../hooks/usePremiumSpeech';
@@ -137,7 +137,7 @@ export default function TalkScreen() {
     count: 9,
   });
 
-  const items = (() => {
+  const items = useMemo(() => {
     if (cat === 'smart') {
       return smartItems;
     }
@@ -157,7 +157,7 @@ export default function TalkScreen() {
       return [...base, ...medButtons];
     }
     return CATEGORY_PHRASES[cat] || [];
-  })();
+  }, [cat, smartItems, profile.familyMembers, profile.medications]);
   const catColor =
     CATEGORIES.find((c) => c.id === cat)?.color || '#3B82F6';
 
@@ -178,7 +178,7 @@ export default function TalkScreen() {
         loading={cacheProgress.loading}
       />
       {voiceError && (
-        <div style={{
+        <div role="alert" style={{
           background: '#F59E0B22',
           border: '1px solid #F59E0B44',
           borderRadius: 8,

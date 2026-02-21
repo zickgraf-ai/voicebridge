@@ -144,7 +144,12 @@ export default function SettingsScreen() {
           </div>
         </div>
         <div
+          role="switch"
+          aria-checked={settings.autoSpeak}
+          aria-label="Auto-speak on tap"
+          tabIndex={0}
           onClick={() => update('autoSpeak', !settings.autoSpeak)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); update('autoSpeak', !settings.autoSpeak); } }}
           style={{
             width: 52,
             height: 28,
@@ -181,13 +186,15 @@ export default function SettingsScreen() {
         <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
           {'\u{1F3A4}'} Voice Provider
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div role="radiogroup" aria-label="Voice provider" style={{ display: 'flex', gap: 6 }}>
           {[
             { label: 'Premium', value: 'premium', desc: 'Cloud voices (better quality)' },
             { label: 'Device', value: 'device', desc: 'Built-in voices (works offline)' },
           ].map((opt) => (
             <button
               key={opt.value}
+              role="radio"
+              aria-checked={settings.voiceProvider === opt.value}
               onClick={() => update('voiceProvider', opt.value)}
               style={{
                 flex: 1,
@@ -231,10 +238,12 @@ export default function SettingsScreen() {
           <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
             {'\u2728'} Premium Voice
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div role="radiogroup" aria-label="Premium voice" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {PREMIUM_VOICES.map((v) => (
               <button
                 key={v.id}
+                role="radio"
+                aria-checked={settings.premiumVoice === v.id}
                 onClick={() => update('premiumVoice', v.id)}
                 style={{
                   background: settings.premiumVoice === v.id ? '#8B5CF633' : '#0F172A',
@@ -295,6 +304,9 @@ export default function SettingsScreen() {
             </div>
           </div>
           <button
+            role="switch"
+            aria-checked={settings.premiumOnly}
+            aria-label="Always use premium voice"
             onClick={() => update('premiumOnly', !settings.premiumOnly)}
             style={{
               width: 48,
@@ -340,6 +352,7 @@ export default function SettingsScreen() {
           <select
             value={settings.voiceURI}
             onChange={(e) => update('voiceURI', e.target.value)}
+            aria-label="Device voice"
             style={{
               width: '100%',
               padding: '10px 12px',
@@ -399,7 +412,7 @@ export default function SettingsScreen() {
           : '\u{1F50A} Test ' + (isPremium ? 'Premium ' : '') + 'Voice'}
       </button>
       {voiceError && (
-        <div style={{
+        <div role="alert" style={{
           background: '#F59E0B22',
           border: '1px solid #F59E0B44',
           borderRadius: 10,
@@ -542,6 +555,7 @@ export default function SettingsScreen() {
             </span>
             <span style={{ flex: 1, color: '#E2E8F0', fontSize: 14 }}>{loc.label}</span>
             <button
+              aria-label={`Remove ${loc.label} location`}
               onClick={() => {
                 setLocations((prev) => prev.filter((_, j) => j !== i));
               }}

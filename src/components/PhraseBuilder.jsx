@@ -59,6 +59,7 @@ export default function PhraseBuilder({ onPhrase, gridRows, locationLabel }) {
         >
           <button
             onClick={() => setStarter(null)}
+            aria-label="Back to phrase starters"
             style={{
               background: '#334155',
               border: 'none',
@@ -115,6 +116,7 @@ export default function PhraseBuilder({ onPhrase, gridRows, locationLabel }) {
         <button
           key={k}
           onClick={() => setStarter(k)}
+          aria-label={`${k}, phrase starter`}
           style={{
             background: 'linear-gradient(135deg, #F59E0B12, #F59E0B06)',
             border: '2px solid #F59E0B44',

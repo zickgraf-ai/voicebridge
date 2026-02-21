@@ -35,8 +35,7 @@ describe('SpeechBar', () => {
 
     it('shows keyboard icon button when empty', () => {
       renderSpeechBar();
-      // Keyboard icon button
-      expect(screen.getByRole('button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Open keyboard' })).toBeInTheDocument();
     });
   });
 
@@ -48,18 +47,16 @@ describe('SpeechBar', () => {
 
     it('shows replay, edit, and clear buttons', () => {
       renderSpeechBar({ text: 'I need water' });
-      // replay, edit, clear = 3 buttons
-      const buttons = screen.getAllByRole('button');
-      expect(buttons.length).toBe(3);
+      expect(screen.getByRole('button', { name: 'Replay message' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Edit message' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Clear message' })).toBeInTheDocument();
     });
 
     it('calls onSpeak when replay button is clicked', async () => {
       const user = userEvent.setup();
       const props = renderSpeechBar({ text: 'I need water' });
 
-      // First button is replay
-      const buttons = screen.getAllByRole('button');
-      await user.click(buttons[0]);
+      await user.click(screen.getByRole('button', { name: 'Replay message' }));
       expect(props.onSpeak).toHaveBeenCalledOnce();
     });
 
@@ -67,8 +64,7 @@ describe('SpeechBar', () => {
       const user = userEvent.setup();
       const props = renderSpeechBar({ text: 'I need water' });
 
-      const buttons = screen.getAllByRole('button');
-      await user.click(buttons[1]); // edit button
+      await user.click(screen.getByRole('button', { name: 'Edit message' }));
       expect(props.setEditing).toHaveBeenCalledWith(true);
     });
 
@@ -76,8 +72,7 @@ describe('SpeechBar', () => {
       const user = userEvent.setup();
       const props = renderSpeechBar({ text: 'I need water' });
 
-      const buttons = screen.getAllByRole('button');
-      await user.click(buttons[2]); // clear button
+      await user.click(screen.getByRole('button', { name: 'Clear message' }));
       expect(props.onClear).toHaveBeenCalledOnce();
     });
   });
@@ -85,9 +80,9 @@ describe('SpeechBar', () => {
   describe('Filled mode (auto-speak off)', () => {
     it('shows a prominent speak button instead of replay', () => {
       renderSpeechBar({ text: 'I need water', autoSpeak: false });
-      // Speak button is present (larger, blue)
-      const buttons = screen.getAllByRole('button');
-      expect(buttons.length).toBe(3); // speak, edit, clear
+      expect(screen.getByRole('button', { name: 'Speak message' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Edit message' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Clear message' })).toBeInTheDocument();
     });
   });
 

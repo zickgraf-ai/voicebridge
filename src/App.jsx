@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAppContext } from './context/AppContext';
 import TalkScreen from './screens/TalkScreen';
-import ProfileScreen from './screens/ProfileScreen';
-import SettingsScreen from './screens/SettingsScreen';
-import CareScreen from './screens/CareScreen';
 import BottomNav from './components/BottomNav';
+
+const ProfileScreen = lazy(() => import('./screens/ProfileScreen'));
+const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
+const CareScreen = lazy(() => import('./screens/CareScreen'));
 
 export default function App() {
   const { state, setProfile, setSettings } = useAppContext();
@@ -78,9 +79,11 @@ export default function App() {
         <div style={{ width: '100%', height: '100%', display: view === 'talk' ? 'contents' : 'none' }}>
           <TalkScreen />
         </div>
-        {view === 'profile' && <ProfileScreen onDone={() => setView('talk')} />}
-        {view === 'settings' && <SettingsScreen />}
-        {view === 'care' && <CareScreen />}
+        <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748B' }}>Loading...</div>}>
+          {view === 'profile' && <ProfileScreen onDone={() => setView('talk')} />}
+          {view === 'settings' && <SettingsScreen />}
+          {view === 'care' && <CareScreen />}
+        </Suspense>
       </div>
 
       <BottomNav active={view} onSelect={setView} />

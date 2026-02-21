@@ -21,7 +21,10 @@ export function hasCachedKeySync(key) {
   return _knownKeys.has(key);
 }
 
+let _dbInstance = null;
+
 function openDB() {
+  if (_dbInstance) return Promise.resolve(_dbInstance);
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
@@ -30,7 +33,11 @@ function openDB() {
         db.createObjectStore(STORE_NAME);
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      _dbInstance = request.result;
+      _dbInstance.onclose = () => { _dbInstance = null; };
+      resolve(_dbInstance);
+    };
     request.onerror = () => reject(request.error);
   });
 }

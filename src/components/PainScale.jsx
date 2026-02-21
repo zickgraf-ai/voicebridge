@@ -1,4 +1,6 @@
-export default function PainScale({ onSelect }) {
+import { memo } from 'react';
+
+export default memo(function PainScale({ onSelect }) {
   const getColor = (n) => {
     if (n <= 3) return '#10B981';
     if (n <= 6) return '#F59E0B';
@@ -8,6 +10,8 @@ export default function PainScale({ onSelect }) {
 
   return (
     <div
+      role="group"
+      aria-label="Pain scale, 1 to 10"
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(5, 1fr)',
@@ -20,6 +24,7 @@ export default function PainScale({ onSelect }) {
         <button
           key={n}
           onClick={() => onSelect('My pain is ' + n + ' out of 10')}
+          aria-label={`Pain level ${n} out of 10`}
           style={{
             borderRadius: 14,
             border: 'none',
@@ -38,4 +43,4 @@ export default function PainScale({ onSelect }) {
       ))}
     </div>
   );
-}
+});

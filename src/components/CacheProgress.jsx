@@ -1,14 +1,18 @@
+import { memo } from 'react';
+
 /**
  * Subtle non-blocking download progress indicator for voice caching.
  * Shows as a small bar at the top when downloading.
  */
-export default function CacheProgress({ cached, total, loading }) {
+export default memo(function CacheProgress({ cached, total, loading }) {
   if (!loading || total === 0) return null;
 
   const pct = Math.round((cached / total) * 100);
 
   return (
     <div
+      role="status"
+      aria-label={`Downloading voice: ${cached} of ${total} complete`}
       style={{
         position: 'fixed',
         top: 0,
@@ -27,6 +31,11 @@ export default function CacheProgress({ cached, total, loading }) {
     >
       <div style={{ flex: 1 }}>
         <div
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Voice download progress: ${pct}%`}
           style={{
             height: 3,
             borderRadius: 2,
@@ -50,4 +59,4 @@ export default function CacheProgress({ cached, total, loading }) {
       </span>
     </div>
   );
-}
+});

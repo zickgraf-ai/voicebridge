@@ -6,32 +6,29 @@ test.describe('Settings persistence', () => {
     await page.getByText('Settings', { exact: true }).click();
 
     // Find and click the auto-speak toggle to turn it off
-    const toggle = page.getByText('Auto-speak on tap');
+    const toggle = page.getByRole('switch', { name: 'Auto-speak on tap' });
     await expect(toggle).toBeVisible();
-
-    // The toggle is a SegmentControl with On/Off options
-    await page.getByRole('button', { name: 'Off', exact: true }).first().click();
+    await toggle.click();
 
     // Reload and verify
     await page.reload();
     await page.getByText('Settings', { exact: true }).click();
 
-    // "Off" should still be selected (highlighted blue)
-    const offBtn = page.getByRole('button', { name: 'Off', exact: true }).first();
-    await expect(offBtn).toHaveCSS('background-color', 'rgb(59, 130, 246)');
+    // Toggle should still be off (aria-checked=false)
+    await expect(page.getByRole('switch', { name: 'Auto-speak on tap' })).toHaveAttribute('aria-checked', 'false');
   });
 
   test('voice speed persists across reload', async ({ page }) => {
     await page.goto('/');
     await page.getByText('Settings', { exact: true }).click();
 
-    // Change speed to Fast
-    await page.getByRole('button', { name: 'Fast', exact: true }).click();
+    // Change speed to Fast (now a radio button)
+    await page.getByRole('radio', { name: 'Fast' }).click();
 
     await page.reload();
     await page.getByText('Settings', { exact: true }).click();
 
-    const fastBtn = page.getByRole('button', { name: 'Fast', exact: true });
+    const fastBtn = page.getByRole('radio', { name: 'Fast' });
     await expect(fastBtn).toHaveCSS('background-color', 'rgb(59, 130, 246)');
   });
 
@@ -44,16 +41,16 @@ test.describe('Settings persistence', () => {
     const tabSizeSection = page.getByText('Category Tab Size');
     await expect(tabSizeSection).toBeVisible();
 
-    // The Normal button under Category Tab Size
-    // There are multiple "Normal" buttons, so find the one near the tab size label
-    const normalBtns = page.getByRole('button', { name: 'Normal', exact: true });
+    // The Normal button under Category Tab Size (now radio buttons)
+    // There are multiple "Normal" radios, so find the first one
+    const normalBtns = page.getByRole('radio', { name: 'Normal' });
     await normalBtns.first().click();
 
     await page.reload();
     await page.getByText('Settings', { exact: true }).click();
 
-    // First "Normal" button should be selected
-    const normalBtn = page.getByRole('button', { name: 'Normal', exact: true }).first();
+    // First "Normal" radio should be selected
+    const normalBtn = page.getByRole('radio', { name: 'Normal' }).first();
     await expect(normalBtn).toHaveCSS('background-color', 'rgb(59, 130, 246)');
   });
 

@@ -8,9 +8,9 @@ test.describe('App loads', () => {
     await expect(page.getByText('Tap here to type...')).toBeVisible();
 
     // Category tabs (use exact match via role)
-    await expect(page.getByRole('button', { name: /Smart/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Quick/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Food/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Smart/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Quick/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Food/ })).toBeVisible();
 
     // Bottom nav
     await expect(page.getByText('Talk', { exact: true })).toBeVisible();
@@ -29,7 +29,7 @@ test.describe('Phrase interaction', () => {
   test('tapping a phrase fills the speech bar', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: /Quick/ }).click();
+    await page.getByRole('tab', { name: /Quick/ }).click();
     await page.getByRole('button', { name: /Bathroom/ }).click();
 
     // Speech bar should show the phrase text
@@ -39,11 +39,11 @@ test.describe('Phrase interaction', () => {
   test('clear button resets speech bar', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: /Quick/ }).click();
+    await page.getByRole('tab', { name: /Quick/ }).click();
     await page.getByRole('button', { name: /Bathroom/ }).click();
 
-    // Click clear (✕)
-    await page.getByText('\u2715').click();
+    // Click clear button
+    await page.getByRole('button', { name: 'Clear message' }).click();
 
     await expect(page.getByText('Tap here to type...')).toBeVisible();
   });
@@ -53,10 +53,10 @@ test.describe('Category switching', () => {
   test('Quick tab shows quick phrases', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: /Quick/ }).click();
+    await page.getByRole('tab', { name: /Quick/ }).click();
 
     await expect(page.getByRole('button', { name: /Yes/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: '❌ No' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'No', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /Please/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Thank you/ })).toBeVisible();
   });
@@ -64,15 +64,15 @@ test.describe('Category switching', () => {
   test('Food tab shows food phrases', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: /Food/ }).click();
+    await page.getByRole('tab', { name: /Food/ }).click();
 
-    await expect(page.getByRole('button', { name: '💧 Water' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Water', exact: true })).toBeVisible();
   });
 
   test('Comfort tab shows comfort phrases', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: /Comfort/ }).click();
+    await page.getByRole('tab', { name: /Comfort/ }).click();
 
     await expect(page.getByRole('button', { name: /Turn on TV/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Turn off lights/ })).toBeVisible();
@@ -84,20 +84,20 @@ test.describe('Pain scale', () => {
     await page.goto('/');
 
     // Use category bar button for Med
-    await page.getByRole('button', { name: /Med/ }).first().click();
+    await page.getByRole('tab', { name: /Med/ }).first().click();
     await page.getByRole('button', { name: /I'm in pain/ }).click();
 
     for (let i = 1; i <= 10; i++) {
-      await expect(page.getByRole('button', { name: String(i), exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: `Pain level ${i} out of 10` })).toBeVisible();
     }
   });
 
   test('tapping pain number fills speech bar', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: /Med/ }).first().click();
+    await page.getByRole('tab', { name: /Med/ }).first().click();
     await page.getByRole('button', { name: /I'm in pain/ }).click();
-    await page.getByRole('button', { name: '7', exact: true }).click();
+    await page.getByRole('button', { name: 'Pain level 7 out of 10' }).click();
 
     await expect(page.getByText('My pain is 7 out of 10')).toBeVisible();
   });
@@ -129,7 +129,7 @@ test.describe('Edit mode', () => {
     await page.getByText('Tap here to type...').click();
     await page.getByPlaceholder('Type your message...').fill('I want');
 
-    await page.getByRole('button', { name: /Quick/ }).click();
+    await page.getByRole('tab', { name: /Quick/ }).click();
     await page.getByRole('button', { name: /Bathroom/ }).click();
 
     const input = page.getByPlaceholder('Type your message...');
@@ -162,7 +162,7 @@ test.describe('Navigation', () => {
     await page.getByText('Care', { exact: true }).click();
 
     await expect(page.getByText('Overview')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Activity' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Activity' })).toBeVisible();
   });
 
   test('navigates back to Talk screen', async ({ page }) => {
@@ -210,7 +210,7 @@ test.describe('Phrase Builder', () => {
   test('shows starters and builds phrases', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: /Build/ }).click();
+    await page.getByRole('tab', { name: /Build/ }).click();
 
     await expect(page.getByText('I need...')).toBeVisible();
     await expect(page.getByText('Can you...')).toBeVisible();
