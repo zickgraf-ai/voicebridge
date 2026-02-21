@@ -139,7 +139,13 @@ export function usePremiumSpeech() {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    window.speechSynthesis?.cancel();
+    // Only cancel Web Speech if something is actually playing or queued.
+    // Calling cancel() with nothing active can put iOS Safari's synth
+    // into a bad state where the next speak() call is silently dropped.
+    const synth = window.speechSynthesis;
+    if (synth && (synth.speaking || synth.pending)) {
+      synth.cancel();
+    }
 
     if (!text) return;
 
@@ -174,7 +180,9 @@ export function usePremiumSpeech() {
 
     if (blob) {
       // Cancel Web Speech fallback — premium audio is available
-      window.speechSynthesis?.cancel();
+      if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
+        window.speechSynthesis.cancel();
+      }
       setError(null);
       const url = URL.createObjectURL(blob);
       audio.src = url;
@@ -276,11 +284,19 @@ export function usePremiumSpeech() {
 }
 
 function speakWebSpeech(text, rate, voices, voiceURI) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  // Do NOT call cancel() here — the caller is responsible for cancellation.
+  // Double cancel → speak in the same call stack causes silence on iOS Safari.
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = rate || 0.9;
   const voice = voices.find((v) => v.voiceURI === voiceURI) || voices[0];
   if (voice) utterance.voice = voice;
-  window.speechSynthesis.speak(utterance);
+  synth.speak(utterance);
+  // iOS Safari workaround: pause+resume forces the utterance to actually start.
+  // Without this, iOS can queue the utterance but never play it.
+  if ('ontouchstart' in window) {
+    synth.pause();
+    synth.resume();
+  }
 }

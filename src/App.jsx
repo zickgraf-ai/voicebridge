@@ -73,9 +73,11 @@ export default function App() {
         )}
       </div>
 
-      {/* Screen area */}
+      {/* Screen area — TalkScreen stays mounted to preserve suggestion cache */}
       <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        {view === 'talk' && <TalkScreen />}
+        <div style={{ width: '100%', height: '100%', display: view === 'talk' ? 'contents' : 'none' }}>
+          <TalkScreen />
+        </div>
         {view === 'profile' && <ProfileScreen onDone={() => setView('talk')} />}
         {view === 'settings' && <SettingsScreen />}
         {view === 'care' && <CareScreen />}
