@@ -12,5 +12,21 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.js'],
     css: false,
     exclude: ['e2e/**', 'node_modules/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      exclude: [
+        'e2e/**',
+        'src/test/**',
+        '**/*.config.*',
+        'public/**',
+      ],
+      thresholds: {
+        statements: 70,
+        branches: 60,
+        functions: 60,
+        lines: 70,
+      },
+    },
   },
 });
