@@ -1,30 +1,57 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
+import { usePremiumSpeech } from '../hooks/usePremiumSpeech';
+import { useLocation } from '../hooks/useLocation';
 import { getIdentityPhrase } from '../utils/identity';
-import { CATEGORY_PHRASES, CATEGORIES } from '../data/phrases';
-import { SMART_PHRASES, getTimeOfDay } from '../data/smartSuggest';
+import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases';
+import { SMART_PHRASES } from '../data/smartSuggest';
+import { updateFrequencyMap } from '../utils/smartEngine';
+import { useSuggestions } from '../hooks/useSuggestions';
 import SpeechBar from '../components/SpeechBar';
 import CategoryBar from '../components/CategoryBar';
 import PhraseGrid from '../components/PhraseGrid';
 import PainScale from '../components/PainScale';
 import PhraseBuilder from '../components/PhraseBuilder';
+import CacheProgress from '../components/CacheProgress';
 
-function speakText(text, voices, settings) {
-  if (!window.speechSynthesis || !text) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = settings.voiceRate || 0.9;
-  const voice =
-    voices.find((v) => v.voiceURI === settings.voiceURI) || voices[0];
-  if (voice) utterance.voice = voice;
-  window.speechSynthesis.speak(utterance);
-}
+// Collect all phrases for the smart engine to score
+const ALL_SCORABLE_PHRASES = (() => {
+  const seen = new Set();
+  const result = [];
+  for (const phrases of Object.values(SMART_PHRASES)) {
+    for (const p of phrases) {
+      if (!seen.has(p.t)) {
+        seen.add(p.t);
+        result.push(p);
+      }
+    }
+  }
+  for (const [catId, phrases] of Object.entries(CATEGORY_PHRASES)) {
+    for (const p of phrases) {
+      if (!seen.has(p.t)) {
+        seen.add(p.t);
+        result.push(p);
+      }
+    }
+  }
+  for (const phrases of Object.values(LOCATION_PHRASES)) {
+    for (const p of phrases) {
+      if (!seen.has(p.t)) {
+        seen.add(p.t);
+        result.push(p);
+      }
+    }
+  }
+  return result;
+})();
 
 export default function TalkScreen() {
-  const { state, addHistory } = useAppContext();
-  const { profile, settings } = state;
+  const { state, addHistory, setFrequencyMap } = useAppContext();
+  const { profile, settings, history, frequencyMap, pinnedPhrases, locations } = state;
   const voices = useVoices();
+  const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, error: voiceError } = usePremiumSpeech();
+  const { locationLabel } = useLocation(locations || []);
 
   const [text, setText] = useState('');
   const [editing, setEditing] = useState(false);
@@ -46,9 +73,18 @@ export default function TalkScreen() {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
+  // Unified speak function that handles both premium and device voices
   const doSpeak = useCallback(
-    (t) => speakText(t || text, voices, settings),
-    [text, voices, settings]
+    (t) => {
+      const speakText = t || text;
+      if (!speakText) return;
+      premiumSpeak(speakText, {
+        voiceRate: settings.voiceRate,
+        webVoices: voices,
+        webVoiceURI: settings.voiceURI,
+      });
+    },
+    [text, voices, settings, premiumSpeak]
   );
 
   const setAndSpeak = useCallback(
@@ -56,10 +92,17 @@ export default function TalkScreen() {
       setText(newText);
       setShowPain(false);
       setEditing(false);
-      if (settings.autoSpeak) speakText(newText, voices, settings);
+      if (settings.autoSpeak) {
+        premiumSpeak(newText, {
+          voiceRate: settings.voiceRate,
+          webVoices: voices,
+          webVoiceURI: settings.voiceURI,
+        });
+      }
       addHistory({ phrase: newText, category: cat, source });
+      setFrequencyMap((prev) => updateFrequencyMap(prev, newText, locationLabel));
     },
-    [settings, voices, cat, addHistory]
+    [settings, voices, cat, addHistory, setFrequencyMap, premiumSpeak]
   );
 
   const handleTap = useCallback(
@@ -81,13 +124,24 @@ export default function TalkScreen() {
     [setAndSpeak, editing, text, profile]
   );
 
-  // Build dynamic items based on category + profile data
+  // Smart suggestions: local-first with AI upgrade
+  const { suggestions: smartItems } = useSuggestions({
+    frequencyMap,
+    allPhrases: ALL_SCORABLE_PHRASES,
+    history,
+    medications: profile.medications || [],
+    pinnedPhrases: pinnedPhrases || [],
+    locationLabel,
+    condition: profile.condition,
+    familyNames: (profile.familyMembers || []).map((f) => f.name),
+    count: 9,
+  });
+
   const items = (() => {
     if (cat === 'smart') {
-      return SMART_PHRASES[getTimeOfDay()] || SMART_PHRASES.afternoon;
+      return smartItems;
     }
     if (cat === 'people') {
-      // Generate "Call [Name]" and "Where's [Name]?" from profile family members
       const familyButtons = profile.familyMembers.flatMap((f) => [
         { t: 'Call ' + f.name, i: f.photo || '\u{1F464}' },
         { t: "Where's " + f.name + '?', i: '\u2753' },
@@ -95,13 +149,11 @@ export default function TalkScreen() {
       return [...familyButtons, ...(CATEGORY_PHRASES.people || [])];
     }
     if (cat === 'medical') {
-      // Inject medication buttons from profile
       const medButtons = profile.medications.map((m) => ({
         t: 'Time for ' + m.name,
         i: '\u{1F48A}',
       }));
       const base = CATEGORY_PHRASES.medical || [];
-      // Insert med buttons after the static medical buttons
       return [...base, ...medButtons];
     }
     return CATEGORY_PHRASES[cat] || [];
@@ -120,6 +172,25 @@ export default function TalkScreen() {
         overflow: 'hidden',
       }}
     >
+      <CacheProgress
+        cached={cacheProgress.cached}
+        total={cacheProgress.total}
+        loading={cacheProgress.loading}
+      />
+      {voiceError && (
+        <div style={{
+          background: '#F59E0B22',
+          border: '1px solid #F59E0B44',
+          borderRadius: 8,
+          padding: '6px 10px',
+          color: '#FCD34D',
+          fontSize: 12,
+          textAlign: 'center',
+          flexShrink: 0,
+        }}>
+          {voiceError}
+        </div>
+      )}
       <SpeechBar
         text={text}
         setText={setText}
@@ -127,12 +198,13 @@ export default function TalkScreen() {
           doSpeak();
           if (text.trim()) {
             addHistory({ phrase: text.trim(), category: cat, source: 'typed' });
+            setFrequencyMap((prev) => updateFrequencyMap(prev, text.trim(), locationLabel));
           }
         }}
         onClear={() => {
           setText('');
           setEditing(false);
-          window.speechSynthesis?.cancel();
+          premiumCancel();
         }}
         autoSpeak={settings.autoSpeak}
         editing={editing}
@@ -155,6 +227,7 @@ export default function TalkScreen() {
           <PhraseBuilder
             onPhrase={(builtText) => setAndSpeak(builtText, 'builder')}
             gridRows={gridRows}
+            locationLabel={locationLabel}
           />
         ) : (
           <PhraseGrid

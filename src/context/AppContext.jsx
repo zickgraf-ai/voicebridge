@@ -27,6 +27,9 @@ const DEFAULT_SETTINGS = {
   tabSize: 'xl',
   painReminder: 120,
   caregiverAlert: 6,
+  voiceProvider: 'device',
+  premiumVoice: 'nova',
+  premiumOnly: false,
 };
 
 function reducer(state, action) {
@@ -58,6 +61,27 @@ function reducer(state, action) {
     }
     case 'CLEAR_HISTORY':
       return { ...state, history: [] };
+    case 'SET_FREQUENCY_MAP':
+      return {
+        ...state,
+        frequencyMap: typeof action.payload === 'function'
+          ? action.payload(state.frequencyMap)
+          : action.payload,
+      };
+    case 'SET_PINNED_PHRASES':
+      return {
+        ...state,
+        pinnedPhrases: typeof action.payload === 'function'
+          ? action.payload(state.pinnedPhrases)
+          : action.payload,
+      };
+    case 'SET_LOCATIONS':
+      return {
+        ...state,
+        locations: typeof action.payload === 'function'
+          ? action.payload(state.locations)
+          : action.payload,
+      };
     default:
       return state;
   }
@@ -68,6 +92,9 @@ function loadInitialState() {
     profile: loadState('profile', DEFAULT_PROFILE),
     settings: loadState('settings', DEFAULT_SETTINGS),
     history: loadState('history', []),
+    frequencyMap: loadState('frequencyMap', {}),
+    pinnedPhrases: loadState('pinnedPhrases', []),
+    locations: loadState('locations', []),
   };
 }
 
@@ -87,12 +114,35 @@ export function AppProvider({ children }) {
     saveState('history', state.history);
   }, [state.history]);
 
+  useEffect(() => {
+    saveState('frequencyMap', state.frequencyMap);
+  }, [state.frequencyMap]);
+
+  useEffect(() => {
+    saveState('pinnedPhrases', state.pinnedPhrases);
+  }, [state.pinnedPhrases]);
+
+  useEffect(() => {
+    saveState('locations', state.locations);
+  }, [state.locations]);
+
   const setProfile = (payload) => dispatch({ type: 'SET_PROFILE', payload });
   const setSettings = (payload) => dispatch({ type: 'SET_SETTINGS', payload });
   const addHistory = (entry) => dispatch({ type: 'ADD_HISTORY', payload: entry });
+  const setFrequencyMap = (payload) => dispatch({ type: 'SET_FREQUENCY_MAP', payload });
+  const setPinnedPhrases = (payload) => dispatch({ type: 'SET_PINNED_PHRASES', payload });
+  const setLocations = (payload) => dispatch({ type: 'SET_LOCATIONS', payload });
 
   return (
-    <AppContext.Provider value={{ state, setProfile, setSettings, addHistory }}>
+    <AppContext.Provider value={{
+      state,
+      setProfile,
+      setSettings,
+      addHistory,
+      setFrequencyMap,
+      setPinnedPhrases,
+      setLocations,
+    }}>
       {children}
     </AppContext.Provider>
   );

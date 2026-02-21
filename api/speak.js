@@ -1,0 +1,54 @@
+// Vercel serverless function: POST /api/speak
+// Calls OpenAI TTS API to generate speech audio
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'OpenAI API key not configured' });
+  }
+
+  const { text, voice = 'nova', speed = 1.0 } = req.body || {};
+  if (!text || typeof text !== 'string' || text.length > 500) {
+    return res.status(400).json({ error: 'Invalid text (required, max 500 chars)' });
+  }
+
+  const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+  if (!validVoices.includes(voice)) {
+    return res.status(400).json({ error: 'Invalid voice' });
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: text,
+        voice,
+        speed: Math.max(0.25, Math.min(4.0, speed)),
+        response_format: 'mp3',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI TTS error:', response.status, errorText);
+      return res.status(response.status).json({ error: 'TTS API error' });
+    }
+
+    const buffer = await response.arrayBuffer();
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    console.error('TTS request failed:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}

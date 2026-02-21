@@ -1,12 +1,43 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import PhraseGrid from './PhraseGrid';
-import { BUILDERS } from '../data/phrases';
+import { BUILDERS, LOCATION_BUILDERS } from '../data/phrases';
 
-export default function PhraseBuilder({ onPhrase, gridRows }) {
+export default function PhraseBuilder({ onPhrase, gridRows, locationLabel }) {
   const [starter, setStarter] = useState(null);
-  const keys = Object.keys(BUILDERS);
+
+  // Merge base builders with location-specific builders
+  const mergedBuilders = useMemo(() => {
+    const locKey = locationLabel ? locationLabel.toLowerCase() : null;
+    const locBuilders = locKey ? LOCATION_BUILDERS[locKey] : null;
+    if (!locBuilders) return BUILDERS;
+
+    const merged = { ...BUILDERS };
+    for (const [starterKey, data] of Object.entries(locBuilders)) {
+      if (merged[starterKey]) {
+        // Append new sub-phrases (deduped by text)
+        const existingTexts = new Set(merged[starterKey].s.map((s) => s.t));
+        const newSubs = data.s.filter((s) => !existingTexts.has(s.t));
+        merged[starterKey] = {
+          ...merged[starterKey],
+          s: [...merged[starterKey].s, ...newSubs],
+        };
+      } else {
+        // New starter from location
+        merged[starterKey] = data;
+      }
+    }
+    return merged;
+  }, [locationLabel]);
+
+  const keys = Object.keys(mergedBuilders);
 
   if (starter) {
+    const builderData = mergedBuilders[starter];
+    if (!builderData) {
+      setStarter(null);
+      return null;
+    }
+
     return (
       <div
         style={{
@@ -56,7 +87,7 @@ export default function PhraseBuilder({ onPhrase, gridRows }) {
           </div>
         </div>
         <PhraseGrid
-          items={BUILDERS[starter].s}
+          items={builderData.s}
           onTap={(p) => {
             onPhrase(starter + ' ' + p.t);
             setStarter(null);
@@ -96,7 +127,7 @@ export default function PhraseBuilder({ onPhrase, gridRows }) {
             gap: 4,
           }}
         >
-          <span style={{ fontSize: 28 }}>{BUILDERS[k].i}</span>
+          <span style={{ fontSize: 28 }}>{mergedBuilders[k].i}</span>
           <span
             style={{
               fontSize: 14,

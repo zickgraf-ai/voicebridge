@@ -40,3 +40,18 @@ export const SMART_PHRASES = {
     { t: 'My Info', i: '\u{1FAAA}', a: 'identity' },
   ],
 };
+
+// Flattened, deduplicated list of all smart phrases for scoring
+export const ALL_SMART_PHRASES = (() => {
+  const seen = new Set();
+  const result = [];
+  for (const phrases of Object.values(SMART_PHRASES)) {
+    for (const p of phrases) {
+      if (!seen.has(p.t)) {
+        seen.add(p.t);
+        result.push(p);
+      }
+    }
+  }
+  return result;
+})();

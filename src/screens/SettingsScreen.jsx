@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
+import { useLocation } from '../hooks/useLocation';
+import { PREMIUM_VOICES } from '../hooks/usePremiumSpeech';
+import { getAudio, putAudio } from '../utils/audioCache';
 import SegmentControl from '../components/SegmentControl';
 
 function speakTest(voices, settings) {
@@ -13,11 +16,20 @@ function speakTest(voices, settings) {
   window.speechSynthesis.speak(u);
 }
 
+const LOCATION_LABELS = ['Hospital', 'Home', 'Car', 'Therapy', 'Doctor', 'Pharmacy'];
+
 export default function SettingsScreen() {
-  const { state, setSettings, setProfile } = useAppContext();
-  const { settings, profile } = state;
+  const { state, setSettings, setProfile, setLocations } = useAppContext();
+  const { settings, profile, locations } = state;
   const voices = useVoices();
+  const { coords, locationLabel, permissionGranted, requestPermission } = useLocation(locations || []);
   const [backupMsg, setBackupMsg] = useState('');
+  const [voiceError, setVoiceError] = useState('');
+  const [voiceTesting, setVoiceTesting] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [customLocationLabel, setCustomLocationLabel] = useState('');
+
+  const isPremium = settings.voiceProvider === 'premium';
 
   const update = (key, value) => {
     setSettings((s) => ({ ...s, [key]: value }));
@@ -30,12 +42,69 @@ export default function SettingsScreen() {
     navigator.clipboard?.writeText(url).then(
       () => setBackupMsg('Link copied to clipboard!'),
       () => {
-        // Fallback: show the URL
         prompt('Copy this backup link:', url);
         setBackupMsg('');
       }
     );
     setTimeout(() => setBackupMsg(''), 3000);
+  };
+
+  const testPremiumVoice = async () => {
+    setVoiceError('');
+    setVoiceTesting(true);
+    const testPhrase = 'Hello, I need some water please.';
+    const voice = settings.premiumVoice || 'nova';
+
+    // iOS Safari requires Audio to be created in the user gesture handler
+    const audio = new Audio();
+    audio.volume = 1;
+    audio.onended = () => setVoiceTesting(false);
+
+    try {
+      // Check cache first — may already be pre-cached
+      const cacheKey = voice + ':' + testPhrase;
+      const cached = await getAudio(cacheKey);
+      if (cached) {
+        const url = URL.createObjectURL(cached);
+        audio.src = url;
+        audio.onended = () => { URL.revokeObjectURL(url); setVoiceTesting(false); };
+        await audio.play();
+        return;
+      }
+
+      // Not cached — fetch from API
+      const resp = await fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: testPhrase, voice, speed: settings.voiceRate || 0.9 }),
+      });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        // Cache it for next time
+        await putAudio(cacheKey, blob);
+        const url = URL.createObjectURL(blob);
+        audio.src = url;
+        audio.onended = () => { URL.revokeObjectURL(url); setVoiceTesting(false); };
+        await audio.play();
+      } else if (resp.status === 429) {
+        setVoiceError('Voice service is rate limited. Try again in a moment.');
+        speakTest(voices, settings);
+        setVoiceTesting(false);
+      } else if (resp.status === 500) {
+        setVoiceError('Premium voice service unavailable. Using device voice.');
+        speakTest(voices, settings);
+        setVoiceTesting(false);
+      } else {
+        setVoiceError('Premium voice failed. Using device voice.');
+        speakTest(voices, settings);
+        setVoiceTesting(false);
+      }
+    } catch {
+      setVoiceError('Could not reach voice server. Check your connection.');
+      speakTest(voices, settings);
+      setVoiceTesting(false);
+    }
+    setTimeout(() => setVoiceError(''), 5000);
   };
 
   return (
@@ -99,7 +168,7 @@ export default function SettingsScreen() {
         </div>
       </div>
 
-      {/* Voice picker */}
+      {/* Voice Provider Toggle */}
       <div
         style={{
           background: '#1E293B',
@@ -109,30 +178,187 @@ export default function SettingsScreen() {
         }}
       >
         <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
-          {'\u{1F5E3}\uFE0F'} Voice
+          {'\u{1F3A4}'} Voice Provider
         </div>
-        <select
-          value={settings.voiceURI}
-          onChange={(e) => update('voiceURI', e.target.value)}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { label: 'Premium', value: 'premium', desc: 'Cloud voices (better quality)' },
+            { label: 'Device', value: 'device', desc: 'Built-in voices (works offline)' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => update('voiceProvider', opt.value)}
+              style={{
+                flex: 1,
+                background: settings.voiceProvider === opt.value ? '#3B82F6' : '#0F172A',
+                border: '1px solid ' + (settings.voiceProvider === opt.value ? '#3B82F6' : '#334155'),
+                borderRadius: 10,
+                padding: '10px 8px',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{
+                color: settings.voiceProvider === opt.value ? '#fff' : '#E2E8F0',
+                fontSize: 14,
+                fontWeight: 600,
+              }}>
+                {opt.label}
+              </div>
+              <div style={{
+                color: settings.voiceProvider === opt.value ? '#BFDBFE' : '#64748B',
+                fontSize: 11,
+                marginTop: 2,
+              }}>
+                {opt.desc}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Premium Voice Picker (when premium selected) */}
+      {isPremium && (
+        <div
           style={{
-            width: '100%',
-            padding: '10px 12px',
-            borderRadius: 10,
-            border: '2px solid #334155',
-            background: '#0F172A',
-            color: '#E2E8F0',
-            fontSize: 14,
-            outline: 'none',
+            background: '#1E293B',
+            borderRadius: 12,
+            padding: 12,
+            border: '1px solid #8B5CF640',
           }}
         >
-          {voices.map((v, i) => (
-            <option key={i} value={v.voiceURI}>
-              {v.name}
-              {v.default ? ' \u2605' : ''}
-            </option>
-          ))}
-        </select>
-      </div>
+          <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
+            {'\u2728'} Premium Voice
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {PREMIUM_VOICES.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => update('premiumVoice', v.id)}
+                style={{
+                  background: settings.premiumVoice === v.id ? '#8B5CF633' : '#0F172A',
+                  border: '1px solid ' + (settings.premiumVoice === v.id ? '#8B5CF6' : '#334155'),
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: settings.premiumVoice === v.id ? '#8B5CF6' : '#475569',
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    color: settings.premiumVoice === v.id ? '#E2E8F0' : '#94A3B8',
+                    fontSize: 14,
+                    fontWeight: settings.premiumVoice === v.id ? 600 : 400,
+                  }}>
+                    {v.name}
+                  </div>
+                  <div style={{ color: '#64748B', fontSize: 11 }}>
+                    {v.description}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Premium Only toggle (skip device voice fallback) */}
+      {isPremium && (
+        <div
+          style={{
+            background: '#1E293B',
+            borderRadius: 12,
+            padding: 12,
+            border: '1px solid #334155',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}
+        >
+          <div>
+            <div style={{ color: '#E2E8F0', fontSize: 14 }}>
+              Always use premium voice
+            </div>
+            <div style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
+              Wait for premium audio instead of falling back to device voice. Requires connection.
+            </div>
+          </div>
+          <button
+            onClick={() => update('premiumOnly', !settings.premiumOnly)}
+            style={{
+              width: 48,
+              height: 28,
+              borderRadius: 14,
+              border: 'none',
+              background: settings.premiumOnly ? '#8B5CF6' : '#475569',
+              position: 'relative',
+              cursor: 'pointer',
+              flexShrink: 0,
+              transition: 'background 0.2s',
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: '#fff',
+                position: 'absolute',
+                top: 3,
+                left: settings.premiumOnly ? 23 : 3,
+                transition: 'left 0.2s',
+              }}
+            />
+          </button>
+        </div>
+      )}
+
+      {/* Device Voice picker (when device selected) */}
+      {!isPremium && (
+        <div
+          style={{
+            background: '#1E293B',
+            borderRadius: 12,
+            padding: 12,
+            border: '1px solid #334155',
+          }}
+        >
+          <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
+            {'\u{1F5E3}\uFE0F'} Device Voice
+          </div>
+          <select
+            value={settings.voiceURI}
+            onChange={(e) => update('voiceURI', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '2px solid #334155',
+              background: '#0F172A',
+              color: '#E2E8F0',
+              fontSize: 14,
+              outline: 'none',
+            }}
+          >
+            {voices.map((v, i) => (
+              <option key={i} value={v.voiceURI}>
+                {v.name}
+                {v.default ? ' \u2605' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Speed */}
       <SegmentControl
@@ -148,20 +374,42 @@ export default function SettingsScreen() {
 
       {/* Test Voice */}
       <button
-        onClick={() => speakTest(voices, settings)}
+        onClick={isPremium ? testPremiumVoice : () => speakTest(voices, settings)}
+        disabled={voiceTesting}
         style={{
-          background: 'linear-gradient(135deg, #10B981, #059669)',
+          background: voiceTesting
+            ? '#475569'
+            : isPremium
+              ? 'linear-gradient(135deg, #8B5CF6, #7C3AED)'
+              : 'linear-gradient(135deg, #10B981, #059669)',
           border: 'none',
           borderRadius: 12,
           padding: 12,
           color: '#fff',
           fontSize: 15,
           fontWeight: 600,
-          cursor: 'pointer',
+          cursor: voiceTesting ? 'default' : 'pointer',
+          opacity: voiceTesting ? 0.8 : 1,
+          transition: 'all 0.2s',
         }}
       >
-        {'\u{1F50A}'} Test Voice
+        {voiceTesting
+          ? 'Playing...'
+          : '\u{1F50A} Test ' + (isPremium ? 'Premium ' : '') + 'Voice'}
       </button>
+      {voiceError && (
+        <div style={{
+          background: '#F59E0B22',
+          border: '1px solid #F59E0B44',
+          borderRadius: 10,
+          padding: 10,
+          color: '#FCD34D',
+          fontSize: 13,
+          textAlign: 'center',
+        }}>
+          {voiceError}
+        </div>
+      )}
 
       {/* Category Tab Size */}
       <SegmentControl
@@ -211,6 +459,233 @@ export default function SettingsScreen() {
           { label: 'Off', value: 0 },
         ]}
       />
+
+      {/* Location Labeling */}
+      <div
+        style={{
+          background: '#1E293B',
+          borderRadius: 12,
+          padding: 14,
+          border: '1px solid #334155',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <div style={{ color: '#94A3B8', fontSize: 13 }}>
+          {'\u{1F4CD}'} Locations
+        </div>
+        <div style={{ color: '#64748B', fontSize: 12 }}>
+          Save locations to get smarter suggestions based on where you are.
+        </div>
+
+        {/* Current location status */}
+        {locationLabel && (
+          <div style={{
+            background: '#10B98122',
+            border: '1px solid #10B98144',
+            borderRadius: 8,
+            padding: '6px 10px',
+            color: '#6EE7B7',
+            fontSize: 13,
+          }}>
+            Currently at: {locationLabel}
+          </div>
+        )}
+
+        {/* Saved locations */}
+        {(locations || []).map((loc, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: '#0F172A',
+              border: '1px solid #334155',
+              borderRadius: 8,
+              padding: '8px 10px',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>
+              {loc.label === 'Hospital' ? '\u{1F3E5}' :
+               loc.label === 'Home' ? '\u{1F3E0}' :
+               loc.label === 'Car' ? '\u{1F697}' :
+               loc.label === 'Therapy' ? '\u{1FA7A}' :
+               loc.label === 'Doctor' ? '\u{1F469}\u200D\u2695\uFE0F' :
+               loc.label === 'Pharmacy' ? '\u{1F48A}' : '\u{1F4CD}'}
+            </span>
+            <span style={{ flex: 1, color: '#E2E8F0', fontSize: 14 }}>{loc.label}</span>
+            <button
+              onClick={() => {
+                setLocations((prev) => prev.filter((_, j) => j !== i));
+              }}
+              style={{
+                background: '#EF444433',
+                border: '1px solid #EF444455',
+                borderRadius: 6,
+                padding: '4px 8px',
+                color: '#FCA5A5',
+                fontSize: 11,
+                cursor: 'pointer',
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+
+        {/* Save current location */}
+        {!savingLocation ? (
+          <button
+            onClick={() => {
+              if (!permissionGranted) {
+                requestPermission();
+              }
+              setSavingLocation(true);
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+              border: 'none',
+              borderRadius: 10,
+              padding: 10,
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {'\u{1F4CD}'} Save This Location
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {!coords ? (
+              <div style={{ color: '#F59E0B', fontSize: 12 }}>
+                {permissionGranted
+                  ? 'Getting location...'
+                  : 'Please allow location access when prompted.'}
+              </div>
+            ) : (
+              <>
+                <div style={{ color: '#94A3B8', fontSize: 12 }}>
+                  Choose a label for this location:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {LOCATION_LABELS.map((label) => (
+                    <button
+                      key={label}
+                      onClick={() => {
+                        setLocations((prev) => [
+                          ...prev,
+                          {
+                            label,
+                            latitude: coords.latitude,
+                            longitude: coords.longitude,
+                            radius: 200,
+                          },
+                        ]);
+                        setSavingLocation(false);
+                        setCustomLocationLabel('');
+                      }}
+                      style={{
+                        background: '#0F172A',
+                        border: '1px solid #334155',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        color: '#E2E8F0',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                  <input
+                    type="text"
+                    value={customLocationLabel}
+                    onChange={(e) => setCustomLocationLabel(e.target.value)}
+                    placeholder="Or type a custom name..."
+                    style={{
+                      flex: 1,
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: '1px solid #334155',
+                      background: '#0F172A',
+                      color: '#E2E8F0',
+                      fontSize: 13,
+                      outline: 'none',
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && customLocationLabel.trim()) {
+                        setLocations((prev) => [
+                          ...prev,
+                          {
+                            label: customLocationLabel.trim(),
+                            latitude: coords.latitude,
+                            longitude: coords.longitude,
+                            radius: 200,
+                          },
+                        ]);
+                        setSavingLocation(false);
+                        setCustomLocationLabel('');
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (customLocationLabel.trim()) {
+                        setLocations((prev) => [
+                          ...prev,
+                          {
+                            label: customLocationLabel.trim(),
+                            latitude: coords.latitude,
+                            longitude: coords.longitude,
+                            radius: 200,
+                          },
+                        ]);
+                        setSavingLocation(false);
+                        setCustomLocationLabel('');
+                      }
+                    }}
+                    disabled={!customLocationLabel.trim()}
+                    style={{
+                      background: customLocationLabel.trim()
+                        ? 'linear-gradient(135deg, #3B82F6, #2563EB)'
+                        : '#334155',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '8px 14px',
+                      color: '#fff',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: customLocationLabel.trim() ? 'pointer' : 'default',
+                      opacity: customLocationLabel.trim() ? 1 : 0.5,
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              onClick={() => setSavingLocation(false)}
+              style={{
+                background: 'transparent',
+                border: '1px solid #334155',
+                borderRadius: 8,
+                padding: '6px 10px',
+                color: '#94A3B8',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Backup / Restore */}
       <div
