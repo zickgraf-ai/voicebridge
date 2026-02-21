@@ -14,20 +14,24 @@ globalThis.speechSynthesis = {
   removeEventListener: vi.fn(),
 };
 
-globalThis.SpeechSynthesisUtterance = vi.fn(() => ({
-  text: '',
-  voice: null,
-  rate: 1,
-  pitch: 1,
-  volume: 1,
-}));
+globalThis.SpeechSynthesisUtterance = class {
+  constructor(text) {
+    this.text = text || '';
+    this.voice = null;
+    this.rate = 1;
+    this.pitch = 1;
+    this.volume = 1;
+  }
+};
 
 // Mock ResizeObserver
-globalThis.ResizeObserver = vi.fn(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+globalThis.ResizeObserver = class {
+  constructor() {
+    this.observe = vi.fn();
+    this.unobserve = vi.fn();
+    this.disconnect = vi.fn();
+  }
+};
 
 // Mock matchMedia
 globalThis.matchMedia = vi.fn((query) => ({
