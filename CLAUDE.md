@@ -1,5 +1,10 @@
 # VoiceBridge - AAC Communication App
 
+## Deployment
+- **Production URL**: https://voicebridge-orcin.vercel.app
+- **Version**: Defined in `package.json` `"version"` field, displayed at the bottom of Settings screen as "VoiceBridge v{version}"
+- **Deploy workflow**: After any deploy, ALWAYS tell the user the version number so they can verify the correct build is running on their device. Bump the version in `package.json` when shipping meaningful changes.
+
 ## What This Is
 VoiceBridge is an AI-powered AAC (Augmentative and Alternative Communication) app for people who temporarily or permanently cannot speak. The immediate user is a woman recovering from facial fracture surgery (broken jaw, broken wrist) who needs to communicate with caregivers and medical staff.
 
