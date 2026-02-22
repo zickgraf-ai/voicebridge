@@ -91,27 +91,48 @@ export default memo(function SpeechBar({
       </div>
       <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
         {has && editing && (
-          <button
-            onClick={() => {
-              setEditing(false);
-              onSpeak();
-            }}
-            aria-label="Speak message"
-            style={{
-              background: '#10B981',
-              border: 'none',
-              borderRadius: 10,
-              width: 48,
-              height: 42,
-              fontSize: 22,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {'\u25B6\uFE0F'}
-          </button>
+          <>
+            <button
+              onClick={() => {
+                setEditing(false);
+                onSpeak();
+              }}
+              aria-label="Speak message"
+              style={{
+                background: '#10B981',
+                border: 'none',
+                borderRadius: 10,
+                width: 48,
+                height: 42,
+                fontSize: 22,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {'\u25B6\uFE0F'}
+            </button>
+            <button
+              onClick={onClear}
+              aria-label="Clear message"
+              style={{
+                background: '#33415566',
+                border: 'none',
+                borderRadius: 8,
+                width: 40,
+                height: 38,
+                fontSize: 16,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#94A3B8',
+              }}
+            >
+              {'\u2715'}
+            </button>
+          </>
         )}
         {has && !editing && (
           <>

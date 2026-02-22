@@ -94,10 +94,12 @@ describe('SpeechBar', () => {
       expect(input).toHaveValue('Hello');
     });
 
-    it('shows play button when editing with text', () => {
+    it('shows play and clear buttons when editing with text', () => {
       renderSpeechBar({ text: 'Hello', editing: true });
       const buttons = screen.getAllByRole('button');
-      expect(buttons.length).toBe(1); // play button
+      expect(buttons.length).toBe(2); // play + clear buttons
+      expect(screen.getByLabelText('Speak message')).toBeInTheDocument();
+      expect(screen.getByLabelText('Clear message')).toBeInTheDocument();
     });
 
     it('calls setText on input change', async () => {
