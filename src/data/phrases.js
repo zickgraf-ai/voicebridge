@@ -335,6 +335,13 @@ export const TAB_SIZES = {
   xl: { h: 80, minW: 88, icon: 32, label: 16, pad: '8px 18px', gap: 4, radius: 14 },
 };
 
+// Smart suggest phrases (imported lazily to avoid circular deps)
+const SMART_PHRASE_TEXTS = [
+  'Good morning', "Didn't sleep well", 'I want a smoothie',
+  'Medication time', 'I want broth', 'Need to rest', 'Feeling better',
+  'Evening meds', 'I want a shake', 'Watch TV',
+];
+
 // Flattened, deduplicated list of all standard phrase texts for TTS pre-caching
 export const ALL_STANDARD_PHRASES = (() => {
   const seen = new Set();
@@ -390,6 +397,14 @@ export const ALL_STANDARD_PHRASES = (() => {
     if (!seen.has(painPhrase)) {
       seen.add(painPhrase);
       result.push(painPhrase);
+    }
+  }
+
+  // Smart suggest phrases (unique to smart categories, not in other lists)
+  for (const phrase of SMART_PHRASE_TEXTS) {
+    if (!seen.has(phrase)) {
+      seen.add(phrase);
+      result.push(phrase);
     }
   }
 

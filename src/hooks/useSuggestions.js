@@ -35,7 +35,6 @@ export function useSuggestions({
   const localRef = useRef({
     suggestions: null,
     locationLabel: null,
-    hour: -1,
   });
 
   // Look up location-specific phrases
@@ -44,15 +43,15 @@ export function useSuggestions({
     [locationLabel]
   );
 
-  // Build local suggestions — only recompute on location or hour change.
-  // NOT on time elapsed, history change, or frequency change, because
+  // Build local suggestions — only recompute on location change.
+  // NOT on hour change, history change, or frequency change, because
   // recency penalty would cause tapped phrases to disappear from the grid.
-  const currentHour = new Date().getHours();
+  // Hour-based scoring is still applied at initial computation; we just
+  // don't re-sort mid-session to avoid jarring reshuffles.
   const cached = localRef.current;
   const isStale =
     !cached.suggestions ||
-    cached.locationLabel !== locationLabel ||
-    cached.hour !== currentHour;
+    cached.locationLabel !== locationLabel;
 
   let localSuggestions;
   if (isStale) {
@@ -69,7 +68,6 @@ export function useSuggestions({
     localRef.current = {
       suggestions: localSuggestions,
       locationLabel,
-      hour: currentHour,
     };
   } else {
     localSuggestions = cached.suggestions;
