@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
 import { useLocation } from '../hooks/useLocation';
-import { PREMIUM_VOICES } from '../hooks/usePremiumSpeech';
+import { PREMIUM_VOICES, usePremiumSpeech } from '../hooks/usePremiumSpeech';
 import { getAudio, putAudio, clearAudio } from '../utils/audioCache';
+import AUDIO_MANIFEST from '../data/audioManifest.json';
 import SegmentControl from '../components/SegmentControl';
 
 function speakTest(voices, settings) {
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
   const { settings, profile, locations } = state;
   const voices = useVoices();
   const { coords, locationLabel, permissionGranted, requestPermission } = useLocation(locations || []);
+  const { importVoice, removeVoice, voiceStatus } = usePremiumSpeech();
   const [backupMsg, setBackupMsg] = useState('');
   const [voiceError, setVoiceError] = useState('');
   const [voiceTesting, setVoiceTesting] = useState(false);
@@ -62,7 +64,21 @@ export default function SettingsScreen() {
     audio.onended = () => setVoiceTesting(false);
 
     try {
-      // Check cache first — may already be pre-cached
+      // 1. Check manifest for bundled/static audio
+      const manifest = AUDIO_MANIFEST[voice];
+      const manifestFile = manifest && manifest[testPhrase];
+      if (manifestFile) {
+        audio.src = `/audio/${voice}/${manifestFile}`;
+        audio.onended = () => setVoiceTesting(false);
+        audio.onerror = () => {
+          // Bundled file failed — try cache/API fallback
+          testPremiumVoiceFallback(voice, testPhrase, audio);
+        };
+        await audio.play();
+        return;
+      }
+
+      // 2. Check IndexedDB cache
       const cacheKey = voice + ':' + testPhrase;
       const cached = await getAudio(cacheKey);
       if (cached) {
@@ -73,7 +89,21 @@ export default function SettingsScreen() {
         return;
       }
 
-      // Not cached — fetch from API
+      // 3. Fetch from CDN (if manifest exists but not this phrase) or API
+      if (manifestFile) {
+        const resp = await fetch(`/audio/${voice}/${manifestFile}`);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          await putAudio(cacheKey, blob);
+          const url = URL.createObjectURL(blob);
+          audio.src = url;
+          audio.onended = () => { URL.revokeObjectURL(url); setVoiceTesting(false); };
+          await audio.play();
+          return;
+        }
+      }
+
+      // 4. Fetch from API
       const resp = await fetch('/api/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +111,6 @@ export default function SettingsScreen() {
       });
       if (resp.ok) {
         const blob = await resp.blob();
-        // Cache it for next time
         await putAudio(cacheKey, blob);
         const url = URL.createObjectURL(blob);
         audio.src = url;
@@ -106,6 +135,27 @@ export default function SettingsScreen() {
       setVoiceTesting(false);
     }
     setTimeout(() => setVoiceError(''), 5000);
+  };
+
+  const testPremiumVoiceFallback = async (voice, testPhrase, audio) => {
+    try {
+      const cacheKey = voice + ':' + testPhrase;
+      const cached = await getAudio(cacheKey);
+      if (cached) {
+        const url = URL.createObjectURL(cached);
+        audio.src = url;
+        audio.onended = () => { URL.revokeObjectURL(url); setVoiceTesting(false); };
+        audio.onerror = null;
+        await audio.play();
+        return;
+      }
+      // Last resort: device voice
+      speakTest(voices, settings);
+      setVoiceTesting(false);
+    } catch {
+      speakTest(voices, settings);
+      setVoiceTesting(false);
+    }
   };
 
   return (
@@ -277,6 +327,131 @@ export default function SettingsScreen() {
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Voice Pack Management (when premium selected) */}
+      {isPremium && (
+        <div
+          style={{
+            background: '#1E293B',
+            borderRadius: 12,
+            padding: 12,
+            border: '1px solid #334155',
+          }}
+        >
+          <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
+            Voice Packs
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {PREMIUM_VOICES.map((v) => {
+              const manifest = AUDIO_MANIFEST[v.id];
+              const manifestCount = manifest ? Object.keys(manifest).length : 0;
+              const status = voiceStatus[v.id] || { cached: 0, total: manifestCount, importing: false };
+              const isNova = v.id === 'nova';
+              const isDownloaded = status.cached >= manifestCount && manifestCount > 0;
+              const isImporting = status.importing;
+              const hasManifest = manifestCount > 0;
+
+              return (
+                <div
+                  key={v.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: '#0F172A',
+                    border: '1px solid #334155',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: '#E2E8F0', fontSize: 13, fontWeight: 500 }}>
+                      {v.name}
+                    </div>
+                    <div style={{ color: '#64748B', fontSize: 11 }}>
+                      {isNova && hasManifest
+                        ? 'Bundled'
+                        : isImporting
+                          ? `Downloading... ${status.cached}/${manifestCount}`
+                          : isDownloaded
+                            ? 'Downloaded'
+                            : hasManifest
+                              ? `Available (~3.5 MB)`
+                              : 'Not generated yet'}
+                    </div>
+                    {isImporting && manifestCount > 0 && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          height: 4,
+                          borderRadius: 2,
+                          background: '#334155',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: '100%',
+                            width: `${(status.cached / manifestCount) * 100}%`,
+                            background: '#8B5CF6',
+                            borderRadius: 2,
+                            transition: 'width 0.3s',
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {isNova && hasManifest ? (
+                    <span
+                      style={{
+                        background: '#10B98133',
+                        color: '#6EE7B7',
+                        fontSize: 11,
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Bundled
+                    </span>
+                  ) : isImporting ? null : isDownloaded ? (
+                    <button
+                      onClick={() => removeVoice(v.id)}
+                      style={{
+                        background: '#EF444433',
+                        border: '1px solid #EF444455',
+                        borderRadius: 6,
+                        padding: '4px 8px',
+                        color: '#FCA5A5',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Remove
+                    </button>
+                  ) : hasManifest ? (
+                    <button
+                      onClick={() => importVoice(v.id)}
+                      style={{
+                        background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 10px',
+                        color: '#fff',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Download
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

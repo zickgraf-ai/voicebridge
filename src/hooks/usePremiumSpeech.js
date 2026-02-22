@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { getAudio, putAudio, getCacheStatus, deleteAudio } from '../utils/audioCache';
+import { getAudio, putAudio, getCacheStatus, deleteAudio, clearAudio, hasCachedKeySync } from '../utils/audioCache';
 import { ALL_STANDARD_PHRASES } from '../data/phrases';
+import AUDIO_MANIFEST from '../data/audioManifest.json';
 
 const MAX_CONCURRENT = 5;
+const IMPORT_BATCH_SIZE = 10;
 
 // Premium voice options
 export const PREMIUM_VOICES = [
@@ -16,8 +18,27 @@ export const PREMIUM_VOICES = [
 ];
 
 /**
- * Hook that manages premium TTS with full pre-cache, progress tracking,
- * optimistic Web Speech API fallback, and voice switching re-cache.
+ * Check if a phrase has a bundled static audio file in the manifest.
+ */
+function getBundledUrl(voice, phrase) {
+  const voiceManifest = AUDIO_MANIFEST[voice];
+  if (!voiceManifest) return null;
+  const filename = voiceManifest[phrase];
+  if (!filename) return null;
+  return `/audio/${voice}/${filename}`;
+}
+
+/**
+ * Check if a voice has any entries in the manifest (i.e., has been generated).
+ */
+function hasManifestEntries(voice) {
+  const voiceManifest = AUDIO_MANIFEST[voice];
+  return voiceManifest && Object.keys(voiceManifest).length > 0;
+}
+
+/**
+ * Hook that manages premium TTS with bundled audio, IndexedDB cache,
+ * voice import/download, and overlap-free fallback.
  */
 export function usePremiumSpeech() {
   const { state } = useAppContext();
@@ -28,14 +49,30 @@ export function usePremiumSpeech() {
 
   const [cacheProgress, setCacheProgress] = useState({ cached: 0, total: 0, loading: false });
   const [error, setError] = useState(null);
+  const [voiceStatus, setVoiceStatus] = useState({});
   const abortRef = useRef(null);
   const audioRef = useRef(null);
+  const importAbortRef = useRef(null);
 
   // Check cache status on mount and when voice changes
   useEffect(() => {
     if (!isPremium) return;
 
     let cancelled = false;
+
+    // If the voice has manifest entries, skip API pre-cache entirely.
+    // The manifest means static files exist on CDN/service worker.
+    if (hasManifestEntries(voiceName)) {
+      // Just check IndexedDB status for non-bundled phrases (custom/typed text)
+      getCacheStatus(voiceName, ALL_STANDARD_PHRASES).then((status) => {
+        if (!cancelled) {
+          setCacheProgress({ ...status, loading: false });
+        }
+      });
+      return () => { cancelled = true; };
+    }
+
+    // No manifest entries — fall back to old API pre-cache behavior
     getCacheStatus(voiceName, ALL_STANDARD_PHRASES).then((status) => {
       if (!cancelled) {
         setCacheProgress({ ...status, loading: status.cached < status.total });
@@ -54,6 +91,28 @@ export function usePremiumSpeech() {
     };
   }, [isPremium, voiceName]);
 
+  // Initialize voice status on mount
+  useEffect(() => {
+    if (!isPremium) return;
+
+    const initStatus = async () => {
+      const status = {};
+      for (const v of PREMIUM_VOICES) {
+        const manifestEntries = AUDIO_MANIFEST[v.id] ? Object.keys(AUDIO_MANIFEST[v.id]).length : 0;
+        if (manifestEntries > 0) {
+          // Has manifest — check how many are in IndexedDB
+          const cacheInfo = await getCacheStatus(v.id, ALL_STANDARD_PHRASES);
+          status[v.id] = { cached: cacheInfo.cached, total: manifestEntries, importing: false };
+        } else {
+          status[v.id] = { cached: 0, total: 0, importing: false };
+        }
+      }
+      setVoiceStatus(status);
+    };
+
+    initStatus();
+  }, [isPremium]);
+
   const startPreCache = useCallback(async (voice, initialStatus) => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -61,13 +120,10 @@ export function usePremiumSpeech() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Priority phrases cached first (e.g. test voice phrase)
     const PRIORITY_PHRASES = ['Hello, I need some water please.'];
-
     const phrasesToCache = [];
     const seen = new Set();
 
-    // Add priority phrases first
     for (const phrase of PRIORITY_PHRASES) {
       const key = voice + ':' + phrase;
       const existing = await getAudio(key);
@@ -77,7 +133,6 @@ export function usePremiumSpeech() {
       seen.add(phrase);
     }
 
-    // Then the rest
     for (const phrase of ALL_STANDARD_PHRASES) {
       if (seen.has(phrase)) continue;
       const key = voice + ':' + phrase;
@@ -96,7 +151,6 @@ export function usePremiumSpeech() {
     const total = ALL_STANDARD_PHRASES.length;
     setCacheProgress({ cached, total, loading: true });
 
-    // Process in batches of MAX_CONCURRENT
     for (let i = 0; i < phrasesToCache.length; i += MAX_CONCURRENT) {
       if (controller.signal.aborted) break;
 
@@ -131,7 +185,86 @@ export function usePremiumSpeech() {
   }, []);
 
   /**
-   * Speak text using premium voice (cached) or fall back to Web Speech API.
+   * Import all phrases for a voice from CDN static files into IndexedDB.
+   * This provides offline access and instant playback for non-bundled voices.
+   */
+  const importVoice = useCallback(async (voice) => {
+    const manifest = AUDIO_MANIFEST[voice];
+    if (!manifest) return;
+
+    const entries = Object.entries(manifest);
+    if (entries.length === 0) return;
+
+    // Abort any existing import
+    if (importAbortRef.current) {
+      importAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    importAbortRef.current = controller;
+
+    setVoiceStatus((prev) => ({
+      ...prev,
+      [voice]: { cached: 0, total: entries.length, importing: true },
+    }));
+
+    let cached = 0;
+
+    for (let i = 0; i < entries.length; i += IMPORT_BATCH_SIZE) {
+      if (controller.signal.aborted) break;
+
+      const batch = entries.slice(i, i + IMPORT_BATCH_SIZE);
+      const promises = batch.map(async ([phrase, filename]) => {
+        try {
+          const resp = await fetch(`/audio/${voice}/${filename}`, {
+            signal: controller.signal,
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            await putAudio(voice + ':' + phrase, blob);
+            cached++;
+            setVoiceStatus((prev) => ({
+              ...prev,
+              [voice]: { ...prev[voice], cached },
+            }));
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.warn('Failed to import:', voice, phrase, err);
+          }
+        }
+      });
+
+      await Promise.all(promises);
+    }
+
+    if (!controller.signal.aborted) {
+      setVoiceStatus((prev) => ({
+        ...prev,
+        [voice]: { cached, total: entries.length, importing: false },
+      }));
+    }
+
+    importAbortRef.current = null;
+  }, []);
+
+  /**
+   * Remove all cached audio for a voice from IndexedDB.
+   */
+  const removeVoice = useCallback(async (voice) => {
+    await clearAudio(voice);
+    setVoiceStatus((prev) => ({
+      ...prev,
+      [voice]: { cached: 0, total: prev[voice]?.total || 0, importing: false },
+    }));
+  }, []);
+
+  /**
+   * Speak text using the 4-path priority system:
+   *
+   * PATH A — Bundled: phrase exists in static manifest → play from URL
+   * PATH B — IndexedDB (sync check): hasCachedKeySync → play from cache
+   * PATH C — Cache miss: Web Speech fallback + background API fetch
+   * PATH D — premiumOnly + miss: wait for API, fallback on error
    */
   const speak = useCallback(async (text, { voiceRate = 0.9, webVoices = [], webVoiceURI = '' } = {}) => {
     // Stop any currently playing audio
@@ -140,8 +273,6 @@ export function usePremiumSpeech() {
       audioRef.current = null;
     }
     // Only cancel Web Speech if something is actually playing or queued.
-    // Calling cancel() with nothing active can put iOS Safari's synth
-    // into a bad state where the next speak() call is silently dropped.
     const synth = window.speechSynthesis;
     if (synth && (synth.speaking || synth.pending)) {
       synth.cancel();
@@ -155,70 +286,105 @@ export function usePremiumSpeech() {
     }
 
     // iOS Safari: create Audio element synchronously in the user gesture handler
-    // so it's "blessed" for playback even after async operations
     const audio = new Audio();
     audio.volume = 1;
     audioRef.current = audio;
 
     const key = voiceName + ':' + text;
 
-    // When not premiumOnly, ALWAYS start Web Speech synchronously.
-    // iOS Safari requires speechSynthesis.speak() in the sync gesture chain.
-    // If premium audio is found in cache (~5ms), we cancel Web Speech before
-    // it produces audible output. This avoids silence when sync cache checks
-    // disagree with async IndexedDB reads.
-    if (!premiumOnly) {
-      speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
-    }
-
-    // Try cached premium audio
-    const blob = await getAudio(key);
-
-    // Guard: if another tap happened while we were awaiting, bail out.
-    // This prevents stale async continuations from playing over the new tap.
-    if (audioRef.current !== audio) return;
-
-    if (blob && blob.size > 100) {
-      setError(null);
-      const url = URL.createObjectURL(blob);
-      audio.src = url;
-      audio.onplaying = () => {
-        // Only cancel Web Speech AFTER premium audio is confirmed playing.
-        // This prevents silence if the blob is corrupt/unplayable.
-        if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
-          window.speechSynthesis.cancel();
-        }
-      };
+    // ----- PATH A: Bundled static audio -----
+    const bundledUrl = getBundledUrl(voiceName, text);
+    if (bundledUrl) {
+      audio.src = bundledUrl;
       audio.onended = () => {
-        URL.revokeObjectURL(url);
         if (audioRef.current === audio) audioRef.current = null;
       };
       audio.onerror = () => {
-        URL.revokeObjectURL(url);
         if (audioRef.current === audio) audioRef.current = null;
-        // Delete corrupt cache entry so the next tap works.
-        // Do NOT retry speakWebSpeech here — we're outside iOS gesture context.
-        deleteAudio(key);
+        // Bundled file failed — fall through to IndexedDB/Web Speech
+        speakFallback(text, key, audio, voiceRate, webVoices, webVoiceURI);
       };
-      audio.play().catch(() => {
-        URL.revokeObjectURL(url);
-        // Delete corrupt cache entry; Web Speech fallback continues naturally
+      try {
+        await audio.play();
+        return;
+      } catch {
+        // play() rejected — fall through to next path
+      }
+    }
+
+    // ----- PATH B: IndexedDB sync cached -----
+    if (hasCachedKeySync(key)) {
+      const blob = await getAudio(key);
+
+      // Guard: bail if another tap happened
+      if (audioRef.current !== audio) return;
+
+      if (blob && blob.size > 100) {
+        setError(null);
+        const url = URL.createObjectURL(blob);
+        audio.src = url;
+
+        // Cancel Web Speech BEFORE play (overlap fix)
+        if (synth && (synth.speaking || synth.pending)) {
+          synth.cancel();
+        }
+
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          if (audioRef.current === audio) audioRef.current = null;
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          if (audioRef.current === audio) audioRef.current = null;
+          deleteAudio(key);
+        };
+        try {
+          await audio.play();
+          return;
+        } catch {
+          URL.revokeObjectURL(url);
+          deleteAudio(key);
+        }
+      } else {
+        // Stale/corrupt cache entry
         deleteAudio(key);
-      });
-      return;
+      }
     }
 
-    // Blob was null or too small (corrupt) — delete it if it exists
-    if (blob) {
-      deleteAudio(key);
-    }
-
-    // Not cached: behavior depends on premiumOnly setting
+    // ----- PATH C / D: Cache miss -----
     if (!premiumOnly) {
-      // Web Speech is already playing (started synchronously above).
-      // Cache premium audio in background for next time.
+      // PATH C: Start Web Speech immediately, background cache
+      speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
       audioRef.current = null;
 
+      // Double-check async (maybe sync set wasn't populated yet)
+      const blob = await getAudio(key);
+      if (blob && blob.size > 100) {
+        // Found in async check — cancel Web Speech and play premium
+        const freshAudio = new Audio();
+        freshAudio.volume = 1;
+        const url = URL.createObjectURL(blob);
+        freshAudio.src = url;
+
+        // Cancel Web Speech BEFORE play
+        if (synth && (synth.speaking || synth.pending)) {
+          synth.cancel();
+        }
+
+        freshAudio.onended = () => URL.revokeObjectURL(url);
+        freshAudio.onerror = () => {
+          URL.revokeObjectURL(url);
+          deleteAudio(key);
+        };
+        try {
+          await freshAudio.play();
+        } catch {
+          URL.revokeObjectURL(url);
+        }
+        return;
+      }
+
+      // Not cached at all — background API fetch for next time
       try {
         const resp = await fetch('/api/speak', {
           method: 'POST',
@@ -242,14 +408,14 @@ export function usePremiumSpeech() {
         setTimeout(() => setError(null), 5000);
       }
     } else {
-      // Premium only: wait for API response and play it directly
+      // PATH D: premiumOnly — wait for API response
       try {
         const resp = await fetch('/api/speak', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, voice: voiceName }),
         });
-        if (audioRef.current !== audio) return; // another tap took over
+        if (audioRef.current !== audio) return;
         if (resp.ok) {
           const newBlob = await resp.blob();
           await putAudio(key, newBlob);
@@ -283,6 +449,40 @@ export function usePremiumSpeech() {
     }
   }, [isPremium, voiceName, premiumOnly]);
 
+  /**
+   * Fallback when bundled audio fails — tries IndexedDB then Web Speech.
+   */
+  const speakFallback = useCallback(async (text, key, originalAudio, voiceRate, webVoices, webVoiceURI) => {
+    // Try IndexedDB
+    const blob = await getAudio(key);
+    if (audioRef.current !== originalAudio && audioRef.current !== null) return;
+
+    if (blob && blob.size > 100) {
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio();
+      audio.volume = 1;
+      audio.src = url;
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        if (audioRef.current === audio) audioRef.current = null;
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        if (audioRef.current === audio) audioRef.current = null;
+      };
+      try {
+        await audio.play();
+        return;
+      } catch {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    // Last resort: Web Speech
+    speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+  }, []);
+
   const cancel = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -291,14 +491,12 @@ export function usePremiumSpeech() {
     window.speechSynthesis?.cancel();
   }, []);
 
-  return { speak, cancel, cacheProgress, isPremium, error };
+  return { speak, cancel, cacheProgress, isPremium, error, importVoice, removeVoice, voiceStatus };
 }
 
 function speakWebSpeech(text, rate, voices, voiceURI) {
   const synth = window.speechSynthesis;
   if (!synth) return;
-  // Do NOT call cancel() here — the caller is responsible for cancellation.
-  // Double cancel → speak in the same call stack causes silence on iOS Safari.
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = rate || 0.9;
   const voice = voices.find((v) => v.voiceURI === voiceURI) || voices[0];

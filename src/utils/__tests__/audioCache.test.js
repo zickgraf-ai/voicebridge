@@ -45,7 +45,7 @@ globalThis.indexedDB = {
 };
 
 // Import after mocking
-const { getAudio, putAudio, deleteAudio } = await import('../audioCache');
+const { getAudio, putAudio, deleteAudio, hasCachedKeySync } = await import('../audioCache');
 
 describe('deleteAudio', () => {
   beforeEach(() => {
@@ -74,5 +74,28 @@ describe('deleteAudio', () => {
 
   it('does not throw when deleting a non-existent key', async () => {
     await expect(deleteAudio('nonexistent:key')).resolves.not.toThrow();
+  });
+});
+
+describe('hasCachedKeySync', () => {
+  beforeEach(() => {
+    mockStore.clear();
+  });
+
+  it('returns false for a key that was never stored', () => {
+    expect(hasCachedKeySync('nova:NeverStored')).toBe(false);
+  });
+
+  it('returns true after putAudio stores a key', async () => {
+    await putAudio('nova:Hello', new Blob(['audio'], { type: 'audio/mp3' }));
+    expect(hasCachedKeySync('nova:Hello')).toBe(true);
+  });
+
+  it('returns false after deleteAudio removes a key', async () => {
+    await putAudio('nova:Goodbye', new Blob(['audio'], { type: 'audio/mp3' }));
+    expect(hasCachedKeySync('nova:Goodbye')).toBe(true);
+
+    await deleteAudio('nova:Goodbye');
+    expect(hasCachedKeySync('nova:Goodbye')).toBe(false);
   });
 });
