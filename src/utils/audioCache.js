@@ -1,7 +1,7 @@
 // IndexedDB wrapper for persistent audio blob storage
 // Cache key format: "${voiceName}:${phrase}"
 
-const DB_NAME = 'voicebridge-audio';
+const DB_NAME = 'taptospeak-audio';
 const DB_VERSION = 1;
 const STORE_NAME = 'audio';
 

@@ -1,4 +1,4 @@
-# VoiceBridge — Claude Code CLI Setup Guide
+# TapToSpeak — Claude Code CLI Setup Guide
 
 ## Prerequisites
 

@@ -58,6 +58,6 @@ test.describe('Settings persistence', () => {
     await page.goto('/');
     await page.getByText('Settings', { exact: true }).click();
 
-    await expect(page.getByText(/VoiceBridge v\d+\.\d+\.\d+/)).toBeVisible();
+    await expect(page.getByText(/TapToSpeak v\d+\.\d+\.\d+/)).toBeVisible();
   });
 });

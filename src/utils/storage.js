@@ -1,4 +1,4 @@
-const PREFIX = 'voicebridge_';
+const PREFIX = 'taptospeak_';
 
 export function loadState(key, fallback) {
   try {

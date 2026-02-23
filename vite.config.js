@@ -13,8 +13,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'VoiceBridge',
-        short_name: 'VoiceBridge',
+        name: 'TapToSpeak',
+        short_name: 'TapToSpeak',
         description: 'AAC Communication App',
         theme_color: '#0F172A',
         background_color: '#0F172A',

@@ -1,4 +1,4 @@
-# VoiceBridge — Build Tasks
+# TapToSpeak — Build Tasks
 
 Run these phases in order. After each phase, verify everything works before moving on.
 
@@ -115,8 +115,8 @@ This is the most important screen. Reference `reference-prototype.html` for exac
        VitePWA({
          registerType: 'autoUpdate',
          manifest: {
-           name: 'VoiceBridge',
-           short_name: 'VoiceBridge',
+           name: 'TapToSpeak',
+           short_name: 'TapToSpeak',
            description: 'AAC Communication App',
            theme_color: '#0F172A',
            background_color: '#0F172A',

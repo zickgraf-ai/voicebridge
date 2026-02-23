@@ -64,7 +64,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 16 }}>{'\u{1F4AC}'}</span>
           <span style={{ fontWeight: 700, fontSize: 16, color: '#F1F5F9' }}>
-            VoiceBridge
+            TapToSpeak
           </span>
         </div>
         {state.settings.autoSpeak && (

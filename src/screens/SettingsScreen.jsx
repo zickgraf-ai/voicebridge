@@ -958,7 +958,7 @@ export default function SettingsScreen() {
           padding: '8px 0 16px',
         }}
       >
-        VoiceBridge v{__APP_VERSION__}
+        TapToSpeak v{__APP_VERSION__}
       </div>
     </div>
   );
