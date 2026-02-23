@@ -339,14 +339,21 @@ export function usePremiumSpeech() {
     }
     // Only cancel Web Speech if something is actually playing or queued.
     const synth = window.speechSynthesis;
-    if (synth && (synth.speaking || synth.pending)) {
+    const wasSpeaking = synth && (synth.speaking || synth.pending);
+    if (wasSpeaking) {
       synth.cancel();
     }
 
     if (!text) return;
 
     if (!isPremium) {
-      speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+      // iOS Safari bug: after synth.cancel(), the next utterance can have
+      // its first word swallowed or start muted. A brief delay fixes this.
+      if (wasSpeaking) {
+        setTimeout(() => speakWebSpeech(text, voiceRate, webVoices, webVoiceURI), 80);
+      } else {
+        speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+      }
       return;
     }
 
@@ -425,27 +432,9 @@ export function usePremiumSpeech() {
       // Double-check async (maybe sync set wasn't populated yet)
       const blob = await getAudio(key);
       if (blob && blob.size > 100) {
-        // Found in async check — cancel Web Speech and play premium
-        const freshAudio = new Audio();
-        freshAudio.volume = 1;
-        const url = URL.createObjectURL(blob);
-        freshAudio.src = url;
-
-        // Cancel Web Speech BEFORE play
-        if (synth && (synth.speaking || synth.pending)) {
-          synth.cancel();
-        }
-
-        freshAudio.onended = () => URL.revokeObjectURL(url);
-        freshAudio.onerror = () => {
-          URL.revokeObjectURL(url);
-          deleteAudio(key);
-        };
-        try {
-          await freshAudio.play();
-        } catch {
-          URL.revokeObjectURL(url);
-        }
+        // Found in async check — but DON'T interrupt Web Speech mid-utterance.
+        // The jarring cancel→switch causes a muted-then-loud volume jump.
+        // Just cache it silently; next tap will use the cached premium audio.
         return;
       }
 
