@@ -31,7 +31,7 @@ export default memo(function PhraseButton({ text, icon, onTap, color }) {
         alignItems: 'center',
         justifyContent: 'center',
         gap: 2,
-        transition: 'all 0.15s',
+        transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
         transform: flash ? 'scale(0.95)' : 'scale(1)',
         width: '100%',
         height: '100%',
