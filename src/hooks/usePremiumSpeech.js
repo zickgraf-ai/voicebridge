@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { getAudio, putAudio, getCacheStatus, deleteAudio, clearAudio, hasCachedKeySync } from '../utils/audioCache';
 import { ALL_STANDARD_PHRASES } from '../data/phrases';
+import { getIdentityPhrase } from '../utils/identity';
 import AUDIO_MANIFEST from '../data/audioManifest.json';
 
 const MAX_CONCURRENT = 5;
@@ -42,7 +43,7 @@ function hasManifestEntries(voice) {
  */
 export function usePremiumSpeech() {
   const { state } = useAppContext();
-  const { settings } = state;
+  const { settings, profile } = state;
   const isPremium = settings.voiceProvider === 'premium';
   const voiceName = settings.premiumVoice || 'nova';
   const premiumOnly = settings.premiumOnly || false;
@@ -53,6 +54,70 @@ export function usePremiumSpeech() {
   const abortRef = useRef(null);
   const audioRef = useRef(null);
   const importAbortRef = useRef(null);
+
+  // Pre-cache dynamic profile phrases (identity, family, medications)
+  // so the first tap on "My Info", "Call Jeff", "Time for Ibuprofen" etc.
+  // plays the premium voice instantly instead of falling back to Web Speech.
+  const profileRef = useRef(null);
+  useEffect(() => {
+    if (!isPremium) return;
+
+    const p = profile || {};
+    const phrases = [];
+
+    // Identity phrase ("My Info")
+    const identity = getIdentityPhrase(p);
+    if (identity) phrases.push(identity);
+
+    // Family member phrases ("Call X", "Where's X?")
+    for (const f of p.familyMembers || []) {
+      if (f.name) {
+        phrases.push('Call ' + f.name);
+        phrases.push("Where's " + f.name + '?');
+      }
+    }
+
+    // Medication phrases ("Time for X")
+    for (const m of p.medications || []) {
+      if (m.name) {
+        phrases.push('Time for ' + m.name);
+      }
+    }
+
+    if (phrases.length === 0) return;
+
+    // Build a fingerprint to avoid re-fetching unchanged phrases
+    const fingerprint = voiceName + ':' + phrases.join('|');
+    if (profileRef.current === fingerprint) return;
+    profileRef.current = fingerprint;
+
+    let cancelled = false;
+    (async () => {
+      for (const text of phrases) {
+        if (cancelled) break;
+        const key = voiceName + ':' + text;
+        if (hasCachedKeySync(key)) continue;
+        const existing = await getAudio(key);
+        if (existing || cancelled) continue;
+
+        try {
+          const resp = await fetch('/api/speak', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, voice: voiceName }),
+          });
+          if (resp.ok && !cancelled) {
+            const blob = await resp.blob();
+            await putAudio(key, blob);
+          }
+        } catch {
+          // Silent — Web Speech fallback will handle it
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isPremium, voiceName, profile]);
 
   // Check cache status on mount and when voice changes
   useEffect(() => {

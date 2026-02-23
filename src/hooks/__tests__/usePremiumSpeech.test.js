@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, cleanup } from '@testing-library/react';
 import { createElement } from 'react';
 
 // ---- Mocks (must be before imports that use them) ----
@@ -79,6 +79,22 @@ import { AppProvider } from '../../context/AppContext';
 import { usePremiumSpeech } from '../usePremiumSpeech';
 import * as audioCache from '../../utils/audioCache';
 
+// Pre-populate profile phrase cache keys so the background pre-cache effect
+// is a no-op during tests (prevents async interference with test assertions).
+function seedProfileCache(voice = 'nova') {
+  const dummyBlob = new Blob(['profile audio'], { type: 'audio/mp3' });
+  // Identity phrase from DEFAULT_PROFILE (name: Sarah, dob: January 15, 1985)
+  mockCacheStore.set(`${voice}:My name is Sarah. Date of birth January 15, 1985.`, dummyBlob);
+  // Family phrases from DEFAULT_PROFILE
+  for (const name of ['Jeff', 'Mom', 'Emily']) {
+    mockCacheStore.set(`${voice}:Call ${name}`, dummyBlob);
+    mockCacheStore.set(`${voice}:Where's ${name}?`, dummyBlob);
+  }
+  // Medication phrases from DEFAULT_PROFILE
+  mockCacheStore.set(`${voice}:Time for Ibuprofen 600mg`, dummyBlob);
+  mockCacheStore.set(`${voice}:Time for Amoxicillin 500mg`, dummyBlob);
+}
+
 function seedPremiumSettings(overrides = {}) {
   mockStorage.settings = {
     autoSpeak: true,
@@ -93,6 +109,7 @@ function seedPremiumSettings(overrides = {}) {
     caregiverAlert: 6,
     ...overrides,
   };
+  seedProfileCache(overrides.premiumVoice || 'nova');
 }
 
 function wrapper({ children }) {
@@ -108,13 +125,23 @@ describe('usePremiumSpeech', () => {
     vi.clearAllMocks();
     mockCacheStore.clear();
     mockFetch.mockReset();
+    // Default: return a valid response for any fetch (profile pre-cache may call /api/speak)
+    mockFetch.mockImplementation(() => Promise.resolve({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['audio'], { type: 'audio/mp3' })),
+    }));
     audioInstances.length = 0;
     audioPlayImpl = null;
     Object.keys(mockStorage).forEach((k) => delete mockStorage[k]);
     globalThis.speechSynthesis.speaking = false;
     globalThis.speechSynthesis.pending = false;
-    globalThis.speechSynthesis.speak.mockClear();
-    globalThis.speechSynthesis.cancel.mockClear();
+    globalThis.speechSynthesis.speak.mockReset();
+    globalThis.speechSynthesis.cancel.mockReset();
+  });
+
+  afterEach(() => {
+    // Unmount any rendered hooks to prevent async effects leaking between tests
+    cleanup();
   });
 
   describe('Bundled path (PATH A)', () => {
@@ -184,16 +211,17 @@ describe('usePremiumSpeech', () => {
 
     it('deletes stale key when blob is null despite sync returning true', async () => {
       seedPremiumSettings();
-      audioCache.hasCachedKeySync.mockReturnValueOnce(true);
-      audioCache.getAudio.mockResolvedValueOnce(null);
+      // Mark stale phrase as sync-cached but return null blob
+      mockCacheStore.set('nova:Stale phrase', null);
 
-      const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
+      const { result, unmount } = renderHook(() => usePremiumSpeech(), { wrapper });
 
       await act(async () => {
         await result.current.speak('Stale phrase', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
       });
 
       expect(audioCache.deleteAudio).toHaveBeenCalledWith('nova:Stale phrase');
+      unmount();
     });
   });
 
@@ -343,7 +371,7 @@ describe('usePremiumSpeech', () => {
   });
 
   describe('Nova skips API pre-cache', () => {
-    it('does not start API pre-cache when manifest exists for nova', async () => {
+    it('does not pre-cache standard phrases when manifest exists for nova', async () => {
       seedPremiumSettings();
       const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
 
@@ -351,7 +379,14 @@ describe('usePremiumSpeech', () => {
         await new Promise((r) => setTimeout(r, 50));
       });
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      // Profile phrases (identity, family, meds) may be pre-cached via API,
+      // but standard phrases (Yes, No, etc.) should NOT be — they're in the manifest.
+      const standardPhraseCalls = mockFetch.mock.calls.filter(([url, opts]) => {
+        if (url !== '/api/speak') return false;
+        const body = JSON.parse(opts.body);
+        return ['Yes', 'No', 'Hello, I need some water please.'].includes(body.text);
+      });
+      expect(standardPhraseCalls.length).toBe(0);
     });
   });
 
