@@ -1,7 +1,7 @@
 # TapToSpeak - AAC Communication App
 
 ## Deployment
-- **Production URL**: https://voicebridge-orcin.vercel.app
+- **Production URL**: https://taptospeak-acc.vercel.app
 - **Version**: Defined in `package.json` `"version"` field, displayed at the bottom of Settings screen as "TapToSpeak v{version}"
 - **Deploy workflow**: After any deploy, ALWAYS tell the user the version number so they can verify the correct build is running on their device. Bump the version in `package.json` when shipping meaningful changes.
 
