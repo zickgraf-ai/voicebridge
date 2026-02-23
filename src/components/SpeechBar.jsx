@@ -58,6 +58,7 @@ export default memo(function SpeechBar({
             }}
             placeholder="Type your message..."
             aria-label="Type your message"
+            enterKeyHint="send"
             maxLength={200}
             rows={2}
             style={{

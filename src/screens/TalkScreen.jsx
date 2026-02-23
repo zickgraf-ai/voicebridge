@@ -228,7 +228,10 @@ export default function TalkScreen() {
         editing={editing}
         setEditing={setEditing}
         expanded={expanded}
-        onCollapse={() => setExpanded(false)}
+        onCollapse={() => {
+          setEditing(false);
+          setExpanded(false);
+        }}
         suggestions={typingSuggestions}
         onSuggestionTap={(phrase) => {
           setText(phrase);
