@@ -8,18 +8,192 @@ export default memo(function SpeechBar({
   autoSpeak,
   editing,
   setEditing,
+  expanded = false,
+  onCollapse,
+  suggestions = [],
+  onSuggestionTap,
 }) {
   const ref = useRef(null);
 
   useEffect(() => {
     if (editing && ref.current) {
       ref.current.focus();
-      ref.current.setSelectionRange(9999, 9999);
+      if (ref.current.setSelectionRange) {
+        ref.current.setSelectionRange(9999, 9999);
+      }
     }
   }, [editing]);
 
   const has = text && text.trim().length > 0;
 
+  // ─── Expanded Mode ───
+  if (expanded && editing) {
+    return (
+      <div
+        role="region"
+        aria-label="Speech bar"
+        style={{
+          background: 'linear-gradient(135deg, #1E3A5F, #1E293B)',
+          borderRadius: 14,
+          border: '2px solid #F59E0B',
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
+          overflow: 'hidden',
+          transition: 'height 0.25s ease-out',
+        }}
+      >
+        {/* Text Input Area (64px) */}
+        <div style={{ padding: '8px 12px', height: 64, display: 'flex', alignItems: 'center' }}>
+          <textarea
+            ref={ref}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                setEditing(false);
+                onSpeak();
+              }
+            }}
+            placeholder="Type your message..."
+            aria-label="Type your message"
+            maxLength={200}
+            rows={2}
+            style={{
+              width: '100%',
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              fontSize: 20,
+              fontWeight: 500,
+              outline: 'none',
+              padding: 0,
+              resize: 'none',
+              lineHeight: 1.3,
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
+
+        {/* Suggestion Chips (44px, conditional) */}
+        {suggestions.length > 0 && (
+          <div
+            role="list"
+            aria-label="Typing suggestions"
+            aria-live="polite"
+            style={{
+              display: 'flex',
+              gap: 8,
+              padding: '0 12px',
+              height: 44,
+              alignItems: 'center',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              flexShrink: 0,
+            }}
+          >
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                role="listitem"
+                onClick={() => onSuggestionTap(s)}
+                style={{
+                  background: '#334155',
+                  border: 'none',
+                  borderRadius: 22,
+                  padding: '8px 16px',
+                  height: 40,
+                  color: '#E2E8F0',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Action Buttons (80px row) */}
+        <div style={{ display: 'flex', gap: 8, padding: '8px 12px', height: 80, alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              setEditing(false);
+              onSpeak();
+            }}
+            aria-label="Speak message"
+            style={{
+              flex: 2,
+              height: 72,
+              background: '#10B981',
+              border: 'none',
+              borderRadius: 14,
+              color: '#fff',
+              fontSize: 24,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            {'\u25B6\uFE0F'} Speak
+          </button>
+          <button
+            onClick={onClear}
+            aria-label="Clear message"
+            style={{
+              flex: 1,
+              height: 72,
+              background: '#334155',
+              border: 'none',
+              borderRadius: 14,
+              color: '#E2E8F0',
+              fontSize: 20,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            {'\u2715'} Clear
+          </button>
+        </div>
+
+        {/* Collapse Handle (32px) */}
+        <button
+          onClick={onCollapse}
+          aria-label="Collapse speech bar"
+          style={{
+            width: '100%',
+            height: 32,
+            background: '#1E293B',
+            border: 'none',
+            borderTop: '1px solid #334155',
+            color: '#94A3B8',
+            fontSize: 13,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+        >
+          Collapse {'\u25BC'}
+        </button>
+      </div>
+    );
+  }
+
+  // ─── Collapsed Mode (original) ───
   return (
     <div
       role="region"
@@ -40,6 +214,7 @@ export default memo(function SpeechBar({
           : has
             ? '2px solid #3B82F6'
             : '2px dashed #334155',
+        transition: 'height 0.25s ease-out',
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>

@@ -8,6 +8,7 @@ import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases'
 import { SMART_PHRASES } from '../data/smartSuggest';
 import { updateFrequencyMap } from '../utils/smartEngine';
 import { useSuggestions } from '../hooks/useSuggestions';
+import { getTypingSuggestions } from '../utils/typingSuggestions';
 import SpeechBar from '../components/SpeechBar';
 import CategoryBar from '../components/CategoryBar';
 import PhraseGrid from '../components/PhraseGrid';
@@ -55,8 +56,16 @@ export default function TalkScreen() {
 
   const [text, setText] = useState('');
   const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [cat, setCat] = useState('smart');
   const [showPain, setShowPain] = useState(false);
+
+  // Sync expanded state with editing
+  useEffect(() => {
+    if (editing) {
+      setExpanded(true);
+    }
+  }, [editing]);
 
   const gridRef = useRef(null);
   const [gridRows, setGridRows] = useState(3);
@@ -92,6 +101,7 @@ export default function TalkScreen() {
       setText(newText);
       setShowPain(false);
       setEditing(false);
+      setExpanded(false);
       if (settings.autoSpeak) {
         premiumSpeak(newText, {
           voiceRate: settings.voiceRate,
@@ -136,6 +146,12 @@ export default function TalkScreen() {
     familyNames: (profile.familyMembers || []).map((f) => f.name),
     count: 9,
   });
+
+  // Typing autocomplete suggestions
+  const typingSuggestions = useMemo(() => {
+    if (!expanded || !editing || !text.trim()) return [];
+    return getTypingSuggestions(text, history, ALL_SCORABLE_PHRASES, 5);
+  }, [text, expanded, editing, history]);
 
   const items = useMemo(() => {
     if (cat === 'smart') {
@@ -200,24 +216,44 @@ export default function TalkScreen() {
             addHistory({ phrase: text.trim(), category: cat, source: 'typed' });
             setFrequencyMap((prev) => updateFrequencyMap(prev, text.trim(), locationLabel));
           }
+          setExpanded(false);
         }}
         onClear={() => {
           setText('');
           setEditing(false);
+          setExpanded(false);
           premiumCancel();
         }}
         autoSpeak={settings.autoSpeak}
         editing={editing}
         setEditing={setEditing}
-      />
-      <CategoryBar
-        active={cat}
-        onSelect={(id) => {
-          setCat(id);
-          setShowPain(false);
+        expanded={expanded}
+        onCollapse={() => setExpanded(false)}
+        suggestions={typingSuggestions}
+        onSuggestionTap={(phrase) => {
+          setText(phrase);
+          setEditing(false);
+          setExpanded(false);
+          setAndSpeak(phrase, 'typed');
         }}
-        size={settings.tabSize}
       />
+      <div
+        style={{
+          maxHeight: expanded ? 0 : 200,
+          opacity: expanded ? 0 : 1,
+          overflow: 'hidden',
+          transition: 'max-height 0.2s ease-out, opacity 0.2s ease-out',
+        }}
+      >
+        <CategoryBar
+          active={cat}
+          onSelect={(id) => {
+            setCat(id);
+            setShowPain(false);
+          }}
+          size={settings.tabSize}
+        />
+      </div>
       <div ref={gridRef} style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
         {showPain ? (
           <PainScale
