@@ -76,7 +76,7 @@ globalThis.Audio = MockAudioClass;
 
 // ---- Imports (after mocks) ----
 import { AppProvider } from '../../context/AppContext';
-import { usePremiumSpeech } from '../usePremiumSpeech';
+import { usePremiumSpeech, getSpeechLog } from '../usePremiumSpeech';
 import * as audioCache from '../../utils/audioCache';
 
 // Pre-populate profile phrase cache keys so the background pre-cache effect
@@ -171,16 +171,11 @@ describe('usePremiumSpeech', () => {
       expect(globalThis.speechSynthesis.speak).not.toHaveBeenCalled();
     });
 
-    it('falls through when bundled audio.play() rejects', async () => {
+    it('falls through when bundled audio.play() rejects after retry', async () => {
       seedPremiumSettings();
 
-      // First play call rejects (bundled), subsequent calls succeed
-      let callCount = 0;
-      audioPlayImpl = () => {
-        callCount++;
-        if (callCount === 1) return Promise.reject(new Error('play failed'));
-        return Promise.resolve();
-      };
+      // Both play attempts reject (initial + retry)
+      audioPlayImpl = () => Promise.reject(new Error('play failed'));
 
       const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
 
@@ -188,8 +183,7 @@ describe('usePremiumSpeech', () => {
         await result.current.speak('Yes', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
       });
 
-      // After bundled failure, falls through to PATH C which uses setTimeout(80ms)
-      // to let iOS audio session settle before calling Web Speech
+      // After bundled failure + retry failure, falls through via safeWebSpeechFallback
       await vi.waitFor(() => {
         expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
       });
@@ -270,7 +264,10 @@ describe('usePremiumSpeech', () => {
         await result.current.speak('Unknown phrase not in manifest', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
       });
 
-      expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      // safeWebSpeechFallback uses setTimeout(80ms) for iOS safety
+      await vi.waitFor(() => {
+        expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      });
       expect(result.current.error).toBeTruthy();
     });
   });
@@ -412,6 +409,146 @@ describe('usePremiumSpeech', () => {
       expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
       // No Audio instance should be created for non-premium
       expect(audioInstances.length).toBe(0);
+    });
+  });
+
+  describe('iOS fallback safety (safeWebSpeechFallback)', () => {
+    it('speakFallback applies iOS delay when PATH A onerror fires', async () => {
+      seedPremiumSettings();
+
+      // Drain any leaked timeouts from prior tests, then clear mock
+      await new Promise(r => setTimeout(r, 100));
+      globalThis.speechSynthesis.speak.mockClear();
+
+      const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
+
+      await act(async () => {
+        await result.current.speak('Yes', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
+      });
+
+      // PATH A play succeeded initially
+      expect(globalThis.speechSynthesis.speak).not.toHaveBeenCalled();
+
+      // Simulate onerror (e.g., audio decode failure mid-stream)
+      await act(async () => {
+        lastAudio().onerror();
+        // Wait for async speakFallback + 80ms iOS delay
+        await new Promise(r => setTimeout(r, 150));
+      });
+
+      // Web Speech should have been called via safeWebSpeechFallback
+      expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      const utterance = globalThis.speechSynthesis.speak.mock.calls[0][0];
+      expect(utterance.text).toBe('Yes');
+    });
+
+    it('preserves text integrity through fallback for apostrophes and short trailing words', async () => {
+      seedPremiumSettings();
+
+      // These phrases are NOT in the manifest, so they go through PATH C
+      const phrases = ["I'm cold", "Turn on TV"];
+
+      for (const phrase of phrases) {
+        globalThis.speechSynthesis.speak.mockReset();
+        const { result, unmount } = renderHook(() => usePremiumSpeech(), { wrapper });
+
+        await act(async () => {
+          await result.current.speak(phrase, { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
+        });
+
+        await vi.waitFor(() => {
+          expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+        });
+
+        const utterance = globalThis.speechSynthesis.speak.mock.calls[0][0];
+        expect(utterance.text).toBe(phrase);
+
+        unmount();
+      }
+    });
+
+    it('PATH D fallback applies iOS delay on API error', async () => {
+      seedPremiumSettings({ premiumOnly: true });
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+      const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
+
+      await act(async () => {
+        await result.current.speak('Unknown phrase', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
+      });
+
+      // Web Speech called via safeWebSpeechFallback (with delay)
+      await vi.waitFor(() => {
+        expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      });
+
+      const utterance = globalThis.speechSynthesis.speak.mock.calls[0][0];
+      expect(utterance.text).toBe('Unknown phrase');
+    });
+
+    it('PATH D fallback applies iOS delay on fetch error', async () => {
+      seedPremiumSettings({ premiumOnly: true });
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
+
+      await act(async () => {
+        await result.current.speak('Unknown phrase', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
+      });
+
+      await vi.waitFor(() => {
+        expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      });
+
+      const utterance = globalThis.speechSynthesis.speak.mock.calls[0][0];
+      expect(utterance.text).toBe('Unknown phrase');
+    });
+
+    it('releases Audio element before Web Speech fallback', async () => {
+      seedPremiumSettings();
+
+      const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
+
+      await act(async () => {
+        await result.current.speak('Yes', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
+      });
+
+      const audio = lastAudio();
+
+      // Simulate onerror
+      await act(async () => {
+        audio.onerror();
+        await new Promise(r => setTimeout(r, 150));
+      });
+
+      // Audio src should have been cleared (in onerror handler)
+      expect(audio.src).toBe('');
+      // Web Speech should have been called
+      expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+    });
+
+    it('PATH A retries play() once before falling through', async () => {
+      seedPremiumSettings();
+
+      let playCallCount = 0;
+      audioPlayImpl = () => {
+        playCallCount++;
+        if (playCallCount <= 1) return Promise.reject(new Error('transient'));
+        return Promise.resolve();
+      };
+
+      const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
+
+      await act(async () => {
+        await result.current.speak('Yes', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
+        // Wait for retry delay (100ms)
+        await new Promise(r => setTimeout(r, 150));
+      });
+
+      // play() should have been called twice (initial + retry)
+      expect(playCallCount).toBe(2);
+      // Web Speech should NOT have been called (retry succeeded)
+      expect(globalThis.speechSynthesis.speak).not.toHaveBeenCalled();
     });
   });
 });
