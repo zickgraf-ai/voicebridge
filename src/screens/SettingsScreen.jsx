@@ -917,8 +917,8 @@ export default function SettingsScreen() {
           {'\u{1F4BE}'} Backup & Restore
         </div>
         <div style={{ color: '#64748B', fontSize: 12 }}>
-          Copy a backup link to transfer your profile and settings between
-          Safari and the home screen app.
+          Copy a backup link to transfer your profile and settings to
+          another browser or device.
         </div>
         <button
           onClick={handleBackup}

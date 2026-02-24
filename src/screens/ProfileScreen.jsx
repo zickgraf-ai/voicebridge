@@ -87,7 +87,7 @@ export default function ProfileScreen({ onDone }) {
       </div>
 
       {/* Step content */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflow: 'auto', paddingBottom: 16 }}>
         {step === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div

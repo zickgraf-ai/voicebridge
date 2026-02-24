@@ -188,8 +188,11 @@ describe('usePremiumSpeech', () => {
         await result.current.speak('Yes', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
       });
 
-      // After bundled failure, should fall through to Web Speech
-      expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      // After bundled failure, falls through to PATH C which uses setTimeout(80ms)
+      // to let iOS audio session settle before calling Web Speech
+      await vi.waitFor(() => {
+        expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      });
     });
   });
 
@@ -226,7 +229,7 @@ describe('usePremiumSpeech', () => {
   });
 
   describe('Cache miss path (PATH C)', () => {
-    it('starts Web Speech immediately for cache miss when not premiumOnly', async () => {
+    it('starts Web Speech for cache miss when not premiumOnly (after iOS delay)', async () => {
       seedPremiumSettings();
       const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
 
@@ -234,7 +237,10 @@ describe('usePremiumSpeech', () => {
         await result.current.speak('Unknown phrase not in manifest', { voiceRate: 0.9, webVoices: [], webVoiceURI: '' });
       });
 
-      expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      // PATH C uses setTimeout(80ms) to let iOS audio session settle
+      await vi.waitFor(() => {
+        expect(globalThis.speechSynthesis.speak).toHaveBeenCalled();
+      });
     });
 
     it('waits for API when premiumOnly + cache miss', async () => {

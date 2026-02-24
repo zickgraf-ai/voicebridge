@@ -425,9 +425,18 @@ export function usePremiumSpeech() {
 
     // ----- PATH C / D: Cache miss -----
     if (!premiumOnly) {
-      // PATH C: Start Web Speech immediately, background cache
-      speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+      // PATH C: Start Web Speech fallback, background cache
+      // Release the unused Audio element so it doesn't interfere with
+      // iOS Safari's audio session (creating Audio() claims the session).
+      audio.src = '';
       audioRef.current = null;
+
+      // iOS Safari/WebKit bug: the first word of a Web Speech utterance can
+      // be swallowed or muted after synth.cancel() OR after creating an
+      // Audio element (which claims the audio session). Since PATH C always
+      // follows Audio() creation above, always delay to let the audio
+      // session settle before speaking.
+      setTimeout(() => speakWebSpeech(text, voiceRate, webVoices, webVoiceURI), 80);
 
       // Double-check async (maybe sync set wasn't populated yet)
       const blob = await getAudio(key);

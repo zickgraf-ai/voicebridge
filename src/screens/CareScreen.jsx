@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { putAudio, hasCachedKeySync } from '../utils/audioCache';
+import AUDIO_MANIFEST from '../data/audioManifest.json';
 
 const EXPIRY_OPTIONS = [
   { label: '24 hours', value: 24 * 60 * 60 * 1000 },
@@ -84,6 +86,23 @@ export default function CareScreen() {
     setShowPinUI(false);
     setCustomPinText('');
     setPinExpiry(null);
+
+    // Pre-cache audio for premium voice (fire-and-forget)
+    if (settings.voiceProvider === 'premium') {
+      const voice = settings.premiumVoice || 'nova';
+      const cacheKey = voice + ':' + text;
+      const manifest = AUDIO_MANIFEST[voice];
+      if (manifest && manifest[text]) return; // already bundled
+      if (hasCachedKeySync(cacheKey)) return; // already cached
+      fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice }),
+      })
+        .then((r) => (r.ok ? r.blob() : null))
+        .then((blob) => { if (blob) putAudio(cacheKey, blob); })
+        .catch(() => {}); // Silent fail — will fetch on first tap instead
+    }
   };
 
   const handleRemovePin = (index) => {
