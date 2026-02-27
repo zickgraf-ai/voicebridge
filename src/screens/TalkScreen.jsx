@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
 import { usePremiumSpeech } from '../hooks/usePremiumSpeech';
+import { useTtsPrefetch } from '../hooks/useTtsPrefetch';
 import { useLocation } from '../hooks/useLocation';
 import { getIdentityPhrase } from '../utils/identity';
 import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases';
@@ -55,6 +56,7 @@ export default function TalkScreen() {
   const { locationLabel } = useLocation(locations || []);
 
   const [text, setText] = useState('');
+  useTtsPrefetch(text);
   const [editing, setEditing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [cat, setCat] = useState('smart');
