@@ -29,9 +29,10 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'tts-1',
+        model: 'gpt-4o-mini-tts',
         input: text,
         voice,
+        instructions: 'Speak every word clearly and completely. Do not rush or truncate the ending. Use a calm, friendly pace suitable for someone listening carefully.',
         speed: Math.max(0.25, Math.min(4.0, speed)),
         response_format: 'mp3',
       }),
