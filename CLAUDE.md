@@ -1,9 +1,10 @@
 # TapToSpeak - AAC Communication App
 
 ## Deployment
-- **Production URL**: https://taptospeak-acc.vercel.app
+- **Production URL**: https://taptospeak.app
 - **Version**: Defined in `package.json` `"version"` field, displayed at the bottom of Settings screen as "TapToSpeak v{version}"
-- **Deploy workflow**: After any deploy, ALWAYS tell the user the version number so they can verify the correct build is running on their device. Bump the version in `package.json` when shipping meaningful changes.
+- **Deploy workflow**: After any deploy, ALWAYS tell the user the version number so they can verify the correct build is running on their device.
+- **IMPORTANT — Always bump version**: When committing any functional change (feat, fix, refactor), bump the patch version in `package.json` as part of the commit or as a follow-up commit BEFORE pushing to main. This is required so the user can verify the correct build deployed. Never push functional changes without a version bump.
 
 ## What This Is
 TapToSpeak is an AI-powered AAC (Augmentative and Alternative Communication) app for people who temporarily or permanently cannot speak. The immediate user is a woman recovering from facial fracture surgery (broken jaw, broken wrist) who needs to communicate with caregivers and medical staff.
