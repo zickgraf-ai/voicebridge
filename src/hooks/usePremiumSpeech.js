@@ -5,6 +5,21 @@ import { ALL_STANDARD_PHRASES } from '../data/phrases';
 import { getIdentityPhrase } from '../utils/identity';
 import AUDIO_MANIFEST from '../data/audioManifest.json';
 
+// ---- Diagnostic speech-path logger (in-memory ring buffer) ----
+const speechLog = [];
+const MAX_LOG = 50;
+
+function logSpeech(path, text, detail) {
+  const entry = { ts: Date.now(), path, text: text?.slice(0, 40), detail };
+  speechLog.push(entry);
+  if (speechLog.length > MAX_LOG) speechLog.shift();
+  console.debug(`[TTS] ${path}: ${text?.slice(0, 40)}`, detail || '');
+}
+
+export function getSpeechLog() {
+  return [...speechLog];
+}
+
 const MAX_CONCURRENT = 5;
 const IMPORT_BATCH_SIZE = 10;
 
@@ -367,25 +382,44 @@ export function usePremiumSpeech() {
     // ----- PATH A: Bundled static audio -----
     const bundledUrl = getBundledUrl(voiceName, text);
     if (bundledUrl) {
+      logSpeech('A', text);
       audio.src = bundledUrl;
       audio.onended = () => {
         if (audioRef.current === audio) audioRef.current = null;
       };
       audio.onerror = () => {
-        if (audioRef.current === audio) audioRef.current = null;
+        logSpeech('A-onerror', text, audio.error?.code);
+        if (audioRef.current === audio) {
+          audio.src = '';
+          audioRef.current = null;
+        }
         // Bundled file failed — fall through to IndexedDB/Web Speech
         speakFallback(text, key, audio, voiceRate, webVoices, webVoiceURI);
       };
       try {
         await audio.play();
+        logSpeech('A-ok', text);
         return;
-      } catch {
-        // play() rejected — fall through to next path
+      } catch (err) {
+        logSpeech('A-play-reject', text, err?.message);
+        // Retry once after 100ms — bundled files are SW-cached, transient failures resolve
+        try {
+          await new Promise(r => setTimeout(r, 100));
+          if (audioRef.current !== audio) return; // another tap took over
+          await audio.play();
+          logSpeech('A-ok', text);
+          return;
+        } catch {
+          // Both attempts failed — clean up and fall through
+          audio.src = '';
+          if (audioRef.current === audio) audioRef.current = null;
+        }
       }
     }
 
     // ----- PATH B: IndexedDB sync cached -----
     if (hasCachedKeySync(key)) {
+      logSpeech('B', text);
       const blob = await getAudio(key);
 
       // Guard: bail if another tap happened
@@ -426,17 +460,8 @@ export function usePremiumSpeech() {
     // ----- PATH C / D: Cache miss -----
     if (!premiumOnly) {
       // PATH C: Start Web Speech fallback, background cache
-      // Release the unused Audio element so it doesn't interfere with
-      // iOS Safari's audio session (creating Audio() claims the session).
-      audio.src = '';
-      audioRef.current = null;
-
-      // iOS Safari/WebKit bug: the first word of a Web Speech utterance can
-      // be swallowed or muted after synth.cancel() OR after creating an
-      // Audio element (which claims the audio session). Since PATH C always
-      // follows Audio() creation above, always delay to let the audio
-      // session settle before speaking.
-      setTimeout(() => speakWebSpeech(text, voiceRate, webVoices, webVoiceURI), 80);
+      logSpeech('C', text);
+      safeWebSpeechFallback(text, voiceRate, webVoices, webVoiceURI, audioRef);
 
       // Double-check async (maybe sync set wasn't populated yet)
       const blob = await getAudio(key);
@@ -472,6 +497,7 @@ export function usePremiumSpeech() {
       }
     } else {
       // PATH D: premiumOnly — wait for API response
+      logSpeech('D', text);
       try {
         const resp = await fetch('/api/speak', {
           method: 'POST',
@@ -495,19 +521,19 @@ export function usePremiumSpeech() {
           };
           audio.play().catch(() => URL.revokeObjectURL(url));
         } else {
-          audioRef.current = null;
           const msg = resp.status === 429
             ? 'Premium voice rate limited.'
             : 'Premium voice unavailable.';
           setError(msg);
           setTimeout(() => setError(null), 5000);
-          speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+          logSpeech('D-api-error', text, resp.status);
+          safeWebSpeechFallback(text, voiceRate, webVoices, webVoiceURI, audioRef);
         }
-      } catch {
-        audioRef.current = null;
+      } catch (err) {
         setError('Could not reach voice server.');
         setTimeout(() => setError(null), 5000);
-        speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+        logSpeech('D-fetch-error', text, err?.message);
+        safeWebSpeechFallback(text, voiceRate, webVoices, webVoiceURI, audioRef);
       }
     }
   }, [isPremium, voiceName, premiumOnly]);
@@ -542,8 +568,8 @@ export function usePremiumSpeech() {
       }
     }
 
-    // Last resort: Web Speech
-    speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
+    // Last resort: Web Speech (with iOS delay)
+    safeWebSpeechFallback(text, voiceRate, webVoices, webVoiceURI, audioRef);
   }, []);
 
   const cancel = useCallback(() => {
@@ -557,9 +583,24 @@ export function usePremiumSpeech() {
   return { speak, cancel, cacheProgress, isPremium, error, importVoice, removeVoice, voiceStatus };
 }
 
+/**
+ * Safe Web Speech fallback: releases the Audio element's iOS audio session
+ * and delays 80ms before calling Web Speech. ALL post-Audio fallback paths
+ * must use this to prevent iOS from swallowing the first word.
+ */
+function safeWebSpeechFallback(text, rate, voices, voiceURI, audioRefObj) {
+  if (audioRefObj.current) {
+    audioRefObj.current.src = '';
+    audioRefObj.current = null;
+  }
+  logSpeech('web-fallback', text);
+  setTimeout(() => speakWebSpeech(text, rate, voices, voiceURI), 80);
+}
+
 function speakWebSpeech(text, rate, voices, voiceURI) {
   const synth = window.speechSynthesis;
   if (!synth) return;
+  logSpeech('web-speak', text);
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = rate || 0.9;
   const voice = voices.find((v) => v.voiceURI === voiceURI) || voices[0];
