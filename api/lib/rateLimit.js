@@ -18,6 +18,11 @@ function getClientIp(req) {
  * @param {number} windowMs - Window size in milliseconds
  * @returns {{ allowed: boolean, remaining: number, resetIn: number }}
  */
+/** @internal — clears all rate-limit state; used only by tests */
+export function _resetForTesting() {
+  ipMap.clear();
+}
+
 export function checkRateLimit(req, limit, windowMs) {
   const now = Date.now();
   const ip = getClientIp(req);
