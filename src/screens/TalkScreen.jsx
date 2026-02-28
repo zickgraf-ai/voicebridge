@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
 import { usePremiumSpeech } from '../hooks/usePremiumSpeech';
 import { useLocation } from '../hooks/useLocation';
+import { useSwipe } from '../hooks/useSwipe';
 import { getIdentityPhrase } from '../utils/identity';
 import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases';
 import { SMART_PHRASES } from '../data/smartSuggest';
@@ -177,6 +178,26 @@ export default function TalkScreen() {
   const catColor =
     CATEGORIES.find((c) => c.id === cat)?.color || '#3B82F6';
 
+  // Swipe left (finger moves left) → next category
+  // Swipe right (finger moves right) → previous category
+  const catIndex = CATEGORIES.findIndex((c) => c.id === cat);
+  const swipeHandlers = useSwipe(
+    () => {
+      // swipe left → next
+      if (catIndex < CATEGORIES.length - 1) {
+        setCat(CATEGORIES[catIndex + 1].id);
+        setShowPain(false);
+      }
+    },
+    () => {
+      // swipe right → previous
+      if (catIndex > 0) {
+        setCat(CATEGORIES[catIndex - 1].id);
+        setShowPain(false);
+      }
+    }
+  );
+
   return (
     <div
       style={{
@@ -257,7 +278,7 @@ export default function TalkScreen() {
           size={settings.tabSize}
         />
       </div>
-      <div ref={gridRef} style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+      <div ref={gridRef} style={{ flex: 1, overflow: 'hidden', minHeight: 0 }} {...swipeHandlers}>
         {showPain ? (
           <PainScale
             onSelect={(painText) => setAndSpeak(painText, 'button')}
