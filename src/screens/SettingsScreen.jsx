@@ -6,6 +6,7 @@ import { PREMIUM_VOICES, usePremiumSpeech } from '../hooks/usePremiumSpeech';
 import { getAudio, putAudio, clearAudio } from '../utils/audioCache';
 import AUDIO_MANIFEST from '../data/audioManifest.json';
 import SegmentControl from '../components/SegmentControl';
+import { CATEGORIES } from '../data/phrases';
 
 function speakTest(voices, settings) {
   if (!window.speechSynthesis) return;
@@ -20,8 +21,8 @@ function speakTest(voices, settings) {
 const LOCATION_LABELS = ['Hospital', 'Home', 'Car', 'Therapy', 'Doctor', 'Pharmacy'];
 
 export default function SettingsScreen() {
-  const { state, setSettings, setProfile, setLocations } = useAppContext();
-  const { settings, profile, locations } = state;
+  const { state, setSettings, setProfile, setLocations, setCategoryOrder, setCustomPhrases } = useAppContext();
+  const { settings, profile, locations, customPhrases, categoryOrder } = state;
   const voices = useVoices();
   const { coords, locationLabel, permissionGranted, requestPermission } = useLocation(locations || []);
   const { importVoice, removeVoice, voiceStatus } = usePremiumSpeech();
@@ -672,6 +673,177 @@ export default function SettingsScreen() {
           { label: 'Off', value: 0 },
         ]}
       />
+
+      {/* Category Order */}
+      <div
+        style={{
+          background: '#1E293B',
+          borderRadius: 12,
+          padding: 14,
+          border: '1px solid #334155',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <div style={{ color: '#94A3B8', fontSize: 13 }}>
+          {'\u{1F4CB}'} Category Order
+        </div>
+        <div style={{ color: '#64748B', fontSize: 12 }}>
+          Reorder categories to put your most-used ones first.
+        </div>
+        {(() => {
+          const order = categoryOrder || CATEGORIES.map((c) => c.id);
+          const orderedCats = order
+            .map((id) => CATEGORIES.find((c) => c.id === id))
+            .filter(Boolean);
+          // Include any new categories not yet in order
+          CATEGORIES.forEach((c) => {
+            if (!order.includes(c.id)) orderedCats.push(c);
+          });
+
+          const moveUp = (idx) => {
+            if (idx <= 0) return;
+            const next = [...order];
+            [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+            setCategoryOrder(next);
+          };
+          const moveDown = (idx) => {
+            if (idx >= order.length - 1) return;
+            const next = [...order];
+            [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+            setCategoryOrder(next);
+          };
+
+          return orderedCats.map((c, idx) => (
+            <div
+              key={c.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: '#0F172A',
+                border: '1px solid #334155',
+                borderRadius: 8,
+                padding: '6px 10px',
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{c.icon}</span>
+              <span style={{ flex: 1, color: '#E2E8F0', fontSize: 14 }}>{c.label}</span>
+              <button
+                onClick={() => moveUp(idx)}
+                disabled={idx === 0}
+                aria-label={`Move ${c.label} up`}
+                style={{
+                  width: 36,
+                  height: 36,
+                  background: idx === 0 ? '#0F172A' : '#334155',
+                  border: '1px solid #47556966',
+                  borderRadius: 8,
+                  color: idx === 0 ? '#475569' : '#E2E8F0',
+                  fontSize: 16,
+                  cursor: idx === 0 ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {'\u25B2'}
+              </button>
+              <button
+                onClick={() => moveDown(idx)}
+                disabled={idx === orderedCats.length - 1}
+                aria-label={`Move ${c.label} down`}
+                style={{
+                  width: 36,
+                  height: 36,
+                  background: idx === orderedCats.length - 1 ? '#0F172A' : '#334155',
+                  border: '1px solid #47556966',
+                  borderRadius: 8,
+                  color: idx === orderedCats.length - 1 ? '#475569' : '#E2E8F0',
+                  fontSize: 16,
+                  cursor: idx === orderedCats.length - 1 ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {'\u25BC'}
+              </button>
+            </div>
+          ));
+        })()}
+        {categoryOrder && (
+          <button
+            onClick={() => setCategoryOrder(null)}
+            style={{
+              background: 'transparent',
+              border: '1px solid #334155',
+              borderRadius: 8,
+              padding: '6px 10px',
+              color: '#94A3B8',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            Reset to Default Order
+          </button>
+        )}
+      </div>
+
+      {/* Custom Phrases Management */}
+      <div
+        style={{
+          background: '#1E293B',
+          borderRadius: 12,
+          padding: 14,
+          border: '1px solid #334155',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <div style={{ color: '#94A3B8', fontSize: 13 }}>
+          {'\u2B50'} My Custom Phrases
+        </div>
+        <div style={{ color: '#64748B', fontSize: 12 }}>
+          {customPhrases.length === 0
+            ? 'No custom phrases yet. Tap the "Mine" category tab to add some!'
+            : `${customPhrases.length} custom phrase${customPhrases.length !== 1 ? 's' : ''}`}
+        </div>
+        {customPhrases.map((p, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: '#0F172A',
+              border: '1px solid #334155',
+              borderRadius: 8,
+              padding: '8px 10px',
+            }}
+          >
+            <span style={{ fontSize: 18 }}>{p.i}</span>
+            <span style={{ flex: 1, color: '#E2E8F0', fontSize: 14 }}>{p.t}</span>
+            <button
+              onClick={() => setCustomPhrases((prev) => prev.filter((_, j) => j !== i))}
+              aria-label={`Delete phrase: ${p.t}`}
+              style={{
+                background: '#EF444433',
+                border: '1px solid #EF444455',
+                borderRadius: 6,
+                padding: '4px 8px',
+                color: '#FCA5A5',
+                fontSize: 11,
+                cursor: 'pointer',
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
 
       {/* Location Labeling */}
       <div
