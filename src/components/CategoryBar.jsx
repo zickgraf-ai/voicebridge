@@ -1,7 +1,7 @@
-import { memo, useEffect, useRef, useCallback } from 'react';
+import { memo, useMemo, useEffect, useRef } from 'react';
 import { CATEGORIES, TAB_SIZES } from '../data/phrases';
 
-export default memo(function CategoryBar({ active, onSelect, size }) {
+export default memo(function CategoryBar({ active, onSelect, size, categoryOrder }) {
   const s = TAB_SIZES[size] || TAB_SIZES.xl;
   const activeRef = useRef(null);
 
@@ -10,6 +10,18 @@ export default memo(function CategoryBar({ active, onSelect, size }) {
       activeRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
   }, [active]);
+
+  const orderedCategories = useMemo(() => {
+    if (!categoryOrder) return CATEGORIES;
+    const ordered = categoryOrder
+      .map((id) => CATEGORIES.find((c) => c.id === id))
+      .filter(Boolean);
+    // Append any categories not in the order (e.g. newly added)
+    CATEGORIES.forEach((c) => {
+      if (!categoryOrder.includes(c.id)) ordered.push(c);
+    });
+    return ordered;
+  }, [categoryOrder]);
 
   return (
     <div
@@ -25,7 +37,7 @@ export default memo(function CategoryBar({ active, onSelect, size }) {
         padding: '2px 2px',
       }}
     >
-      {CATEGORIES.map((c) => (
+      {orderedCategories.map((c) => (
         <button
           key={c.id}
           ref={active === c.id ? activeRef : undefined}

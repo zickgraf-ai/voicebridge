@@ -17,6 +17,7 @@ import PhraseGrid from '../components/PhraseGrid';
 import PainScale from '../components/PainScale';
 import PhraseBuilder from '../components/PhraseBuilder';
 import CacheProgress from '../components/CacheProgress';
+import AddPhraseModal from '../components/AddPhraseModal';
 
 // Collect all phrases for the smart engine to score
 const ALL_SCORABLE_PHRASES = (() => {
@@ -50,8 +51,8 @@ const ALL_SCORABLE_PHRASES = (() => {
 })();
 
 export default function TalkScreen() {
-  const { state, addHistory, setFrequencyMap } = useAppContext();
-  const { profile, settings, history, frequencyMap, pinnedPhrases, locations } = state;
+  const { state, addHistory, setFrequencyMap, setCustomPhrases } = useAppContext();
+  const { profile, settings, history, frequencyMap, pinnedPhrases, locations, customPhrases, categoryOrder } = state;
   const voices = useVoices();
   const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, error: voiceError } = usePremiumSpeech();
   const { locationLabel } = useLocation(locations || []);
@@ -62,6 +63,8 @@ export default function TalkScreen() {
   const [expanded, setExpanded] = useState(false);
   const [cat, setCat] = useState('smart');
   const [showPain, setShowPain] = useState(false);
+  const [showAddPhrase, setShowAddPhrase] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
 
   // Sync expanded state with editing
   useEffect(() => {
@@ -178,6 +181,9 @@ export default function TalkScreen() {
     if (cat === 'smart') {
       return smartItems;
     }
+    if (cat === 'mine') {
+      return customPhrases || [];
+    }
     if (cat === 'people') {
       const familyButtons = profile.familyMembers.flatMap((f) => [
         { t: 'Call ' + f.name, i: f.photo || '\u{1F464}' },
@@ -194,7 +200,7 @@ export default function TalkScreen() {
       return [...base, ...medButtons];
     }
     return CATEGORY_PHRASES[cat] || [];
-  }, [cat, smartItems, profile.familyMembers, profile.medications]);
+  }, [cat, smartItems, profile.familyMembers, profile.medications, customPhrases]);
   const catColor =
     CATEGORIES.find((c) => c.id === cat)?.color || '#3B82F6';
 
@@ -274,8 +280,10 @@ export default function TalkScreen() {
           onSelect={(id) => {
             setCat(id);
             setShowPain(false);
+            setDeleteMode(false);
           }}
           size={settings.tabSize}
+          categoryOrder={categoryOrder}
         />
       </div>
       <div ref={gridRef} style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
@@ -289,6 +297,93 @@ export default function TalkScreen() {
             gridRows={gridRows}
             locationLabel={locationLabel}
           />
+        ) : cat === 'mine' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 5 }}>
+            {/* Action bar for Mine category */}
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={() => setShowAddPhrase(true)}
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: '#fff',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                {'\u2795'} Add Phrase
+              </button>
+              {customPhrases.length > 0 && (
+                <button
+                  onClick={() => setDeleteMode((d) => !d)}
+                  style={{
+                    minHeight: 44,
+                    minWidth: 44,
+                    padding: '0 14px',
+                    background: deleteMode ? '#EF444433' : '#334155',
+                    border: deleteMode ? '2px solid #EF4444' : '2px solid transparent',
+                    borderRadius: 10,
+                    color: deleteMode ? '#FCA5A5' : '#94A3B8',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                >
+                  {deleteMode ? '\u2705 Done' : '\u{1F5D1}\uFE0F Edit'}
+                </button>
+              )}
+            </div>
+            {customPhrases.length === 0 ? (
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  color: '#64748B',
+                }}
+              >
+                <span style={{ fontSize: 48 }}>{'\u2B50'}</span>
+                <span style={{ fontSize: 16 }}>
+                  No custom phrases yet
+                </span>
+                <span style={{ fontSize: 13 }}>
+                  Tap "Add Phrase" to create your own buttons
+                </span>
+              </div>
+            ) : (
+              <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                <PhraseGrid
+                  items={items}
+                  onTap={deleteMode
+                    ? (p) => {
+                        setCustomPhrases((prev) =>
+                          prev.filter((cp) => cp.t !== p.t || cp.i !== p.i)
+                        );
+                      }
+                    : handleTap
+                  }
+                  color={deleteMode ? '#EF4444' : catColor}
+                  pageSize={(gridRows - 1) * 3}
+                  category={cat}
+                />
+              </div>
+            )}
+          </div>
         ) : (
           <PhraseGrid
             items={items}
@@ -299,6 +394,13 @@ export default function TalkScreen() {
           />
         )}
       </div>
+      <AddPhraseModal
+        open={showAddPhrase}
+        onClose={() => setShowAddPhrase(false)}
+        onSave={(phrase) => {
+          setCustomPhrases((prev) => [...prev, phrase]);
+        }}
+      />
     </div>
   );
 }

@@ -77,43 +77,45 @@ export default memo(function SpeechBar({
           />
         </div>
 
-        {/* Suggestion Chips (44px, conditional) */}
+        {/* Autocomplete Dropdown (vertical list) */}
         {suggestions.length > 0 && (
           <div
-            role="list"
+            role="listbox"
             aria-label="Typing suggestions"
             aria-live="polite"
             style={{
               display: 'flex',
-              gap: 8,
-              padding: '0 12px',
-              height: 44,
-              alignItems: 'center',
-              overflowX: 'auto',
+              flexDirection: 'column',
+              padding: '0 8px 4px',
+              maxHeight: 160,
+              overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
-              scrollbarWidth: 'none',
+              scrollbarWidth: 'thin',
               flexShrink: 0,
             }}
           >
             {suggestions.map((s) => (
               <button
                 key={s}
-                role="listitem"
+                role="option"
                 onClick={() => onSuggestionTap(s)}
                 style={{
-                  background: '#334155',
+                  background: 'transparent',
                   border: 'none',
-                  borderRadius: 22,
-                  padding: '8px 16px',
-                  height: 40,
+                  borderBottom: '1px solid #33415544',
+                  padding: '10px 12px',
+                  minHeight: 44,
                   color: '#E2E8F0',
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: 500,
                   cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
+                <span style={{ color: '#94A3B8', fontSize: 14 }}>{'\u21B3'}</span>
                 {s}
               </button>
             ))}
