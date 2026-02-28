@@ -1,9 +1,20 @@
 // Vercel serverless function: POST /api/suggest
 // Uses Claude Haiku to rank phrase suggestions based on rich context
 
+import { checkRateLimit } from './lib/rateLimit.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Rate limit: 10 requests per minute per IP
+  const rateCheck = checkRateLimit(req, 10, 60_000);
+  res.setHeader('X-RateLimit-Limit', '10');
+  res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
+  if (!rateCheck.allowed) {
+    res.setHeader('Retry-After', String(Math.ceil(rateCheck.resetIn / 1000)));
+    return res.status(429).json({ error: 'Too many requests' });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
