@@ -16,6 +16,14 @@ Multiple Claude sessions may be running against this repo concurrently. To avoid
 - Branch names **must** include the issue ID: `feat/issue-id-45-use-redis-cache`, `fix/issue-id-32-fix-settings-scroll-bar`, `docs/issue-id-11-update-workflow`.
 - Use conventional commit messages: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`.
 
+### Claude Code on the web (claude.ai/code) — PR creation
+When running in the Claude Code web environment:
+- The `gh` CLI is **not installed** and cannot be installed (no outbound apt access).
+- The git proxy only supports git operations (push/pull/fetch), not the GitHub REST API.
+- **Always create a PR after pushing.** Use the compare URL to prompt the user:
+  `https://github.com/{owner}/{repo}/compare/main...{branch-name}`
+- The system may assign a required branch name (e.g., `claude/implement-issue-6-RRX3K`). Use whatever branch name the system assigns — it does not block PR creation; the limitation is only the missing `gh` CLI.
+
 ## Deployment
 - **Production URL**: https://taptospeak.app
 - **Version**: Defined in `package.json` `"version"` field, displayed at the bottom of Settings screen as "TapToSpeak v{version}"
