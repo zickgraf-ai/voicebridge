@@ -6,6 +6,7 @@ import BottomNav from './components/BottomNav';
 const ProfileScreen = lazy(() => import('./screens/ProfileScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 const CareScreen = lazy(() => import('./screens/CareScreen'));
+const AboutScreen = lazy(() => import('./screens/AboutScreen'));
 
 export default function App() {
   const { state, setProfile, setSettings } = useAppContext();
@@ -117,12 +118,13 @@ export default function App() {
         </div>
         <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748B' }}>Loading...</div>}>
           {view === 'profile' && <ProfileScreen onDone={() => setView('talk')} />}
-          {view === 'settings' && <SettingsScreen />}
+          {view === 'settings' && <SettingsScreen onNavigate={setView} />}
           {view === 'care' && <CareScreen />}
+          {view === 'about' && <AboutScreen onBack={() => setView('settings')} />}
         </Suspense>
       </div>
 
-      <BottomNav active={view} onSelect={setView} />
+      <BottomNav active={view === 'about' ? 'settings' : view} onSelect={setView} />
 
       {/* Restore Password Modal */}
       {restoreModal && (

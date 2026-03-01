@@ -19,7 +19,7 @@ function speakTest(voices, settings) {
 
 const LOCATION_LABELS = ['Hospital', 'Home', 'Car', 'Therapy', 'Doctor', 'Pharmacy'];
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ onNavigate }) {
   const { state, setSettings, setProfile, setLocations } = useAppContext();
   const { settings, profile, locations } = state;
   const voices = useVoices();
@@ -978,6 +978,27 @@ export default function SettingsScreen() {
           </div>
         )}
       </div>
+
+      {/* About */}
+      <button
+        onClick={() => onNavigate && onNavigate('about')}
+        style={{
+          background: '#1E293B',
+          border: '1px solid #334155',
+          borderRadius: 12,
+          padding: '12px 14px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+        }}
+      >
+        <span style={{ color: '#E2E8F0', fontSize: 14 }}>
+          About TapToSpeak
+        </span>
+        <span style={{ color: '#64748B', fontSize: 13 }}>{'\u203A'}</span>
+      </button>
 
       {/* Version */}
       <div
