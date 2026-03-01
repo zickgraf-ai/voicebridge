@@ -7,10 +7,13 @@ Multiple Claude sessions may be running against this repo concurrently. To avoid
 - **ALWAYS** start work in a git worktree — use the `EnterWorktree` tool at the start of every session that will modify code.
 - Never `git checkout` branches directly in the main working tree when making changes.
 
+### Always create an issue first
+- **Every** piece of work must have a GitHub issue before starting. Create one with `gh issue create` if none exists.
+- Reference the issue number in commits (e.g., `Closes #11`).
+
 ### Always create a branch
 - **NEVER** commit directly to `main`. Every change (code, docs, config — anything) must go on a feature branch so merges are visible in history.
-- Use type-prefixed names: `feature/`, `fix/`, `chore/`, `refactor/`, `docs/`.
-- Include issue IDs when applicable: `feature/issue-42-add-prefetch`.
+- Branch names **must** include the issue ID: `feat/issue-id-45-use-redis-cache`, `fix/issue-id-32-fix-settings-scroll-bar`, `docs/issue-id-11-update-workflow`.
 - Use conventional commit messages: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`.
 
 ## Deployment
