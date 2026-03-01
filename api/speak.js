@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   const rateCheck = checkRateLimit(req, 30, 60_000);
   res.setHeader('X-RateLimit-Limit', '30');
   res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
+  res.setHeader('X-RateLimit-Reset', String(Math.ceil((Date.now() + rateCheck.resetIn) / 1000)));
   if (!rateCheck.allowed) {
     res.setHeader('Retry-After', String(Math.ceil(rateCheck.resetIn / 1000)));
     return res.status(429).json({ error: 'Too many requests' });

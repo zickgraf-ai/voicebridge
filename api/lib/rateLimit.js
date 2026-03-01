@@ -3,12 +3,19 @@
 
 const ipMap = new Map(); // IP -> { count, resetTime }
 
+// Trusts x-forwarded-for because Vercel's edge proxy sets it correctly.
+// If requests bypass Vercel (e.g., direct invocation), clients could spoof this header.
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
     return forwarded.split(',')[0].trim();
   }
   return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
+}
+
+/** @internal — clears all rate-limit state; used only by tests */
+export function _resetForTesting() {
+  ipMap.clear();
 }
 
 /**
@@ -18,11 +25,6 @@ function getClientIp(req) {
  * @param {number} windowMs - Window size in milliseconds
  * @returns {{ allowed: boolean, remaining: number, resetIn: number }}
  */
-/** @internal — clears all rate-limit state; used only by tests */
-export function _resetForTesting() {
-  ipMap.clear();
-}
-
 export function checkRateLimit(req, limit, windowMs) {
   const now = Date.now();
   const ip = getClientIp(req);
