@@ -18,6 +18,12 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests' });
   }
 
+  // Body size limit: 2KB
+  const bodySize = JSON.stringify(req.body || {}).length;
+  if (bodySize > 2048) {
+    return res.status(413).json({ error: 'Request body too large' });
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
