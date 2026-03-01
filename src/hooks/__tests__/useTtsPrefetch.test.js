@@ -15,7 +15,7 @@ vi.mock('../../utils/audioCache', () => ({
 
 vi.mock('../../data/audioManifest.json', () => ({
   default: {
-    nova: { 'Yes': 'abc123.mp3', 'No': 'def456.mp3' },
+    nova: { 'Yes': 'abc123.mp3', 'No': 'def456.mp3', 'I need help': 'help789.mp3' },
     shimmer: { 'Yes': 'shim123.mp3' },
     alloy: {},
     echo: {},
@@ -273,21 +273,17 @@ describe('useTtsPrefetch', () => {
 
   it('does not prefetch text that matches a bundled manifest entry', async () => {
     seedPremiumSettings();
-    // "Yes" is in the nova manifest mock
-    // Need 2 words to pass minimum, but let's test with a phrase that IS in manifest
-    // We'll add a multi-word entry to the manifest mock isn't feasible here,
-    // so we test the single-word skip path indirectly (it also fails the 2-word check)
-    // Instead, test that even with enough words, a manifest hit is skipped
+    // "I need help" passes the 2-word and 8-char minimums but is in the nova manifest
     renderHook(
       ({ text }) => useTtsPrefetch(text),
-      { wrapper, initialProps: { text: 'Yes' } }
+      { wrapper, initialProps: { text: 'I need help' } }
     );
 
     await act(async () => {
       vi.advanceTimersByTime(2000);
     });
 
-    // Skipped for two reasons: single word AND in manifest
+    // Skipped solely because it's in the bundled manifest
     expect(mockFetch).not.toHaveBeenCalled();
   });
 

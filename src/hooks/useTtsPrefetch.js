@@ -69,7 +69,6 @@ export function useTtsPrefetch(text) {
           body: JSON.stringify({ text: trimmed, voice: voiceName }),
           signal: controller.signal,
         });
-        clearTimeout(timeoutId);
 
         if (resp.ok && !controller.signal.aborted) {
           const blob = await resp.blob();
@@ -78,6 +77,8 @@ export function useTtsPrefetch(text) {
         }
       } catch {
         // Silent failure — PATH C/D handles it at speak time
+      } finally {
+        clearTimeout(timeoutId);
       }
     }, DEBOUNCE_MS);
 
@@ -89,13 +90,9 @@ export function useTtsPrefetch(text) {
     };
   }, [text, isPremium, voiceName]);
 
-  // Cleanup on unmount
+  // Abort in-flight fetch on unmount
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
       if (abortRef.current) {
         abortRef.current.abort();
         abortRef.current = null;
