@@ -145,7 +145,7 @@ describe('useTtsPrefetch', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('/api/speak', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ text: 'I need water please', voice: 'nova' }),
+      body: JSON.stringify({ text: 'I need water please', voice: 'nova', speed: 0.9 }),
     }));
   });
 
@@ -316,7 +316,7 @@ describe('useTtsPrefetch', () => {
     });
 
     expect(mockFetch).toHaveBeenCalledWith('/api/speak', expect.objectContaining({
-      body: JSON.stringify({ text: 'I need water please', voice: 'shimmer' }),
+      body: JSON.stringify({ text: 'I need water please', voice: 'shimmer', speed: 0.9 }),
     }));
     expect(audioCache.putAudio).toHaveBeenCalledWith(
       'shimmer:I need water please',
