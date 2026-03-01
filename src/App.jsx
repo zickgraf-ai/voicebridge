@@ -10,23 +10,59 @@ const CareScreen = lazy(() => import('./screens/CareScreen'));
 export default function App() {
   const { state, setProfile, setSettings } = useAppContext();
   const [view, setView] = useState('talk');
+  const [restoreModal, setRestoreModal] = useState(null); // holds encrypted payload
+  const [restorePassword, setRestorePassword] = useState('');
+  const [restoreError, setRestoreError] = useState('');
+  const [restoreDecrypting, setRestoreDecrypting] = useState(false);
+
+  function applyRestore(data) {
+    if (data.profile) setProfile(data.profile);
+    if (data.settings) setSettings(data.settings);
+  }
 
   // Restore from backup link (?restore=...)
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const encoded = params.get('restore');
-      if (!encoded) return;
-      const json = decodeURIComponent(atob(encoded));
-      const data = JSON.parse(json);
-      if (data.profile) setProfile(data.profile);
-      if (data.settings) setSettings(data.settings);
-      // Clean URL without reload
-      window.history.replaceState({}, '', window.location.pathname);
-    } catch {
-      // Invalid restore data — ignore
-    }
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get('restore');
+    if (!encoded) return;
+
+    // Clean URL immediately — before any prompt — to prevent re-triggering
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // Check if this is a legacy (unencrypted) backup
+    import('./utils/crypto.js').then(({ isLegacyBackup }) => {
+      if (isLegacyBackup(encoded)) {
+        try {
+          const json = decodeURIComponent(atob(encoded));
+          const data = JSON.parse(json);
+          applyRestore(data);
+        } catch {
+          // Invalid legacy data — ignore
+        }
+      } else {
+        // Encrypted backup — show password modal
+        setRestoreModal(encoded);
+      }
+    });
   }, [setProfile, setSettings]);
+
+  const handleRestoreDecrypt = async () => {
+    if (!restorePassword) return;
+    setRestoreDecrypting(true);
+    setRestoreError('');
+    try {
+      const { decrypt } = await import('./utils/crypto.js');
+      const json = await decrypt(restoreModal, restorePassword);
+      const data = JSON.parse(json);
+      applyRestore(data);
+      setRestoreModal(null);
+      setRestorePassword('');
+    } catch {
+      setRestoreError('Wrong password or corrupted backup');
+    } finally {
+      setRestoreDecrypting(false);
+    }
+  };
 
   return (
     <div
@@ -87,6 +123,99 @@ export default function App() {
       </div>
 
       <BottomNav active={view} onSelect={setView} />
+
+      {/* Restore Password Modal */}
+      {restoreModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: '#1E293B',
+              borderRadius: 16,
+              padding: 20,
+              width: '100%',
+              maxWidth: 360,
+              border: '1px solid #334155',
+            }}
+          >
+            <h3 style={{ color: '#F1F5F9', margin: '0 0 4px', fontSize: 18 }}>
+              {'\u{1F512}'} Restore Backup
+            </h3>
+            <p style={{ color: '#94A3B8', fontSize: 13, margin: '0 0 14px' }}>
+              Enter the password used when this backup was created.
+            </p>
+            <input
+              type="password"
+              placeholder="Backup password"
+              value={restorePassword}
+              onChange={(e) => setRestorePassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleRestoreDecrypt(); }}
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '2px solid #334155',
+                background: '#0F172A',
+                color: '#E2E8F0',
+                fontSize: 14,
+                outline: 'none',
+                marginBottom: 8,
+                boxSizing: 'border-box',
+              }}
+            />
+            {restoreError && (
+              <div style={{ color: '#F87171', fontSize: 13, marginBottom: 8 }}>
+                {restoreError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => { setRestoreModal(null); setRestorePassword(''); setRestoreError(''); }}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: '1px solid #334155',
+                  borderRadius: 10,
+                  padding: 10,
+                  color: '#94A3B8',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRestoreDecrypt}
+                disabled={restoreDecrypting}
+                style={{
+                  flex: 1,
+                  background: restoreDecrypting ? '#475569' : 'linear-gradient(135deg, #3B82F6, #2563EB)',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: 10,
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: restoreDecrypting ? 'default' : 'pointer',
+                }}
+              >
+                {restoreDecrypting ? 'Decrypting...' : 'Restore'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
