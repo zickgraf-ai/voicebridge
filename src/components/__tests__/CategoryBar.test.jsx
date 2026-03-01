@@ -15,6 +15,7 @@ describe('CategoryBar', () => {
     expect(screen.getByText('Comfort')).toBeInTheDocument();
     expect(screen.getByText('People')).toBeInTheDocument();
     expect(screen.getByText('Feel')).toBeInTheDocument();
+    expect(screen.getByText('Prose')).toBeInTheDocument();
   });
 
   it('calls onSelect with category id when clicked', async () => {
@@ -44,11 +45,11 @@ describe('CategoryBar', () => {
     const { container: c1 } = render(
       <CategoryBar active="smart" onSelect={() => {}} size="normal" />
     );
-    expect(c1.querySelectorAll('button').length).toBe(8);
+    expect(c1.querySelectorAll('button').length).toBe(9);
 
     const { container: c2 } = render(
       <CategoryBar active="smart" onSelect={() => {}} size="xl" />
     );
-    expect(c2.querySelectorAll('button').length).toBe(8);
+    expect(c2.querySelectorAll('button').length).toBe(9);
   });
 });

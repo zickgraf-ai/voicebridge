@@ -17,6 +17,7 @@ import PhraseGrid from '../components/PhraseGrid';
 import PainScale from '../components/PainScale';
 import PhraseBuilder from '../components/PhraseBuilder';
 import CacheProgress from '../components/CacheProgress';
+import LongProse from '../components/LongProse';
 
 // Collect all phrases for the smart engine to score
 const ALL_SCORABLE_PHRASES = (() => {
@@ -135,6 +136,28 @@ export default function TalkScreen() {
     },
     [settings, voices, cat, addHistory, setFrequencyMap, premiumSpeak]
   );
+
+  // ── Long Prose: paragraph-by-paragraph speaking ──
+  const handleSpeakParagraph = useCallback(
+    (paragraphText, onDone) => {
+      premiumSpeak(paragraphText, {
+        voiceRate: settings.voiceRate,
+        webVoices: voices,
+        webVoiceURI: settings.voiceURI,
+      });
+      addHistory({ phrase: paragraphText, category: 'prose', source: 'typed' });
+      // Estimate speech duration from word count + speech rate
+      const words = paragraphText.split(/\s+/).length;
+      const rate = settings.voiceRate || 0.9;
+      const durationMs = (words / (150 * rate)) * 60000;
+      setTimeout(onDone, Math.max(durationMs + 500, 1500));
+    },
+    [premiumSpeak, settings, voices, addHistory]
+  );
+
+  const handleStopProse = useCallback(() => {
+    premiumCancel();
+  }, [premiumCancel]);
 
   const handleTap = useCallback(
     (p) => {
@@ -288,6 +311,11 @@ export default function TalkScreen() {
             onPhrase={(builtText) => setAndSpeak(builtText, 'builder')}
             gridRows={gridRows}
             locationLabel={locationLabel}
+          />
+        ) : cat === 'prose' ? (
+          <LongProse
+            onSpeakParagraph={handleSpeakParagraph}
+            onStop={handleStopProse}
           />
         ) : (
           <PhraseGrid
