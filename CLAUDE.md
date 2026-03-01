@@ -1,5 +1,18 @@
 # TapToSpeak - AAC Communication App
 
+## Git Workflow — MANDATORY
+
+### Always use worktrees
+Multiple Claude sessions may be running against this repo concurrently. To avoid branch-switching conflicts:
+- **ALWAYS** start work in a git worktree — use the `EnterWorktree` tool at the start of every session that will modify code.
+- Never `git checkout` branches directly in the main working tree when making changes.
+
+### Always create a branch
+- **NEVER** commit directly to `main`. Every change (code, docs, config — anything) must go on a feature branch so merges are visible in history.
+- Use type-prefixed names: `feature/`, `fix/`, `chore/`, `refactor/`, `docs/`.
+- Include issue IDs when applicable: `feature/issue-42-add-prefetch`.
+- Use conventional commit messages: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`.
+
 ## Deployment
 - **Production URL**: https://taptospeak.app
 - **Version**: Defined in `package.json` `"version"` field, displayed at the bottom of Settings screen as "TapToSpeak v{version}"
