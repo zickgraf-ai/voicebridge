@@ -18,6 +18,7 @@ import PainScale from '../components/PainScale';
 import PhraseBuilder from '../components/PhraseBuilder';
 import CacheProgress from '../components/CacheProgress';
 import AddPhraseModal from '../components/AddPhraseModal';
+import LongProse from '../components/LongProse';
 
 // Collect all phrases for the smart engine to score
 const ALL_SCORABLE_PHRASES = (() => {
@@ -138,6 +139,28 @@ export default function TalkScreen() {
     },
     [settings, voices, cat, addHistory, setFrequencyMap, premiumSpeak]
   );
+
+  // ── Long Prose: paragraph-by-paragraph speaking ──
+  const handleSpeakParagraph = useCallback(
+    (paragraphText, onDone) => {
+      premiumSpeak(paragraphText, {
+        voiceRate: settings.voiceRate,
+        webVoices: voices,
+        webVoiceURI: settings.voiceURI,
+      });
+      addHistory({ phrase: paragraphText, category: 'prose', source: 'typed' });
+      // Estimate speech duration from word count + speech rate
+      const words = paragraphText.split(/\s+/).length;
+      const rate = settings.voiceRate || 0.9;
+      const durationMs = (words / (150 * rate)) * 60000;
+      setTimeout(onDone, Math.max(durationMs + 500, 1500));
+    },
+    [premiumSpeak, settings, voices, addHistory]
+  );
+
+  const handleStopProse = useCallback(() => {
+    premiumCancel();
+  }, [premiumCancel]);
 
   const handleTap = useCallback(
     (p) => {
@@ -365,6 +388,11 @@ export default function TalkScreen() {
             <span style={{ fontSize: 15 }}>No custom phrases yet</span>
             <span style={{ fontSize: 13 }}>Tap "Add Phrase" to create your own buttons</span>
           </div>
+        ) : cat === 'prose' ? (
+          <LongProse
+            onSpeakParagraph={handleSpeakParagraph}
+            onStop={handleStopProse}
+          />
         ) : (
           <PhraseGrid
             items={items}

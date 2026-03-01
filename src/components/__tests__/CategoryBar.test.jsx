@@ -16,6 +16,7 @@ describe('CategoryBar', () => {
     expect(screen.getByText('Comfort')).toBeInTheDocument();
     expect(screen.getByText('People')).toBeInTheDocument();
     expect(screen.getByText('Feel')).toBeInTheDocument();
+    expect(screen.getByText('Prose')).toBeInTheDocument();
   });
 
   it('calls onSelect with category id when clicked', async () => {
