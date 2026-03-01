@@ -4,6 +4,7 @@ import { useVoices } from '../hooks/useVoices';
 import { usePremiumSpeech } from '../hooks/usePremiumSpeech';
 import { useTtsPrefetch } from '../hooks/useTtsPrefetch';
 import { useLocation } from '../hooks/useLocation';
+import { useSwipe } from '../hooks/useSwipe';
 import { getIdentityPhrase } from '../utils/identity';
 import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases';
 import { SMART_PHRASES } from '../data/smartSuggest';
@@ -83,6 +84,24 @@ export default function TalkScreen() {
     ro.observe(gridRef.current);
     return () => ro.disconnect();
   }, []);
+
+  // Swipe left/right to change category
+  const swipeToCat = useCallback(
+    (direction) => {
+      setCat((prev) => {
+        const idx = CATEGORIES.findIndex((c) => c.id === prev);
+        const next = idx + direction;
+        if (next < 0 || next >= CATEGORIES.length) return prev;
+        setShowPain(false);
+        return CATEGORIES[next].id;
+      });
+    },
+    []
+  );
+  useSwipe(gridRef, {
+    onSwipeLeft: useCallback(() => swipeToCat(1), [swipeToCat]),
+    onSwipeRight: useCallback(() => swipeToCat(-1), [swipeToCat]),
+  });
 
   // Unified speak function that handles both premium and device voices
   const doSpeak = useCallback(
