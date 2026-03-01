@@ -82,6 +82,20 @@ function reducer(state, action) {
           ? action.payload(state.locations)
           : action.payload,
       };
+    case 'SET_CUSTOM_PHRASES':
+      return {
+        ...state,
+        customPhrases: typeof action.payload === 'function'
+          ? action.payload(state.customPhrases)
+          : action.payload,
+      };
+    case 'SET_CATEGORY_ORDER':
+      return {
+        ...state,
+        categoryOrder: typeof action.payload === 'function'
+          ? action.payload(state.categoryOrder)
+          : action.payload,
+      };
     default:
       return state;
   }
@@ -95,6 +109,8 @@ function loadInitialState() {
     frequencyMap: loadState('frequencyMap', {}),
     pinnedPhrases: loadState('pinnedPhrases', []),
     locations: loadState('locations', []),
+    customPhrases: loadState('customPhrases', []),
+    categoryOrder: loadState('categoryOrder', null),
   };
 }
 
@@ -126,12 +142,22 @@ export function AppProvider({ children }) {
     saveState('locations', state.locations);
   }, [state.locations]);
 
+  useEffect(() => {
+    saveState('customPhrases', state.customPhrases);
+  }, [state.customPhrases]);
+
+  useEffect(() => {
+    saveState('categoryOrder', state.categoryOrder);
+  }, [state.categoryOrder]);
+
   const setProfile = (payload) => dispatch({ type: 'SET_PROFILE', payload });
   const setSettings = (payload) => dispatch({ type: 'SET_SETTINGS', payload });
   const addHistory = (entry) => dispatch({ type: 'ADD_HISTORY', payload: entry });
   const setFrequencyMap = (payload) => dispatch({ type: 'SET_FREQUENCY_MAP', payload });
   const setPinnedPhrases = (payload) => dispatch({ type: 'SET_PINNED_PHRASES', payload });
   const setLocations = (payload) => dispatch({ type: 'SET_LOCATIONS', payload });
+  const setCustomPhrases = (payload) => dispatch({ type: 'SET_CUSTOM_PHRASES', payload });
+  const setCategoryOrder = (payload) => dispatch({ type: 'SET_CATEGORY_ORDER', payload });
 
   return (
     <AppContext.Provider value={{
@@ -142,6 +168,8 @@ export function AppProvider({ children }) {
       setFrequencyMap,
       setPinnedPhrases,
       setLocations,
+      setCustomPhrases,
+      setCategoryOrder,
     }}>
       {children}
     </AppContext.Provider>
