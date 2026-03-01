@@ -75,12 +75,20 @@ export default function AboutScreen({ onBack }) {
         <h3 style={{ color: '#F1F5F9', margin: '0 0 8px', fontSize: 16 }}>
           Our Story
         </h3>
+        <p style={{ color: '#CBD5E1', fontSize: 13, margin: '0 0 10px', lineHeight: 1.6, fontStyle: 'italic' }}>
+          {'\u201C'}Hi, I&apos;m Jeff Zickgraf, creator of TapToSpeak.
+        </p>
+        <p style={{ color: '#CBD5E1', fontSize: 13, margin: '0 0 10px', lineHeight: 1.6 }}>
+          TapToSpeak was invented out of necessity when a family member after
+          surgery found themselves unable to speak or answer nurses&apos; questions
+          due to a broken dominant hand and broken jaw. We tried a few
+          text-to-speech apps but they were clunky and difficult to quickly
+          speak. That night I built a prototype and installed it on their phone
+          the next morning and it worked for them!
+        </p>
         <p style={{ color: '#CBD5E1', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-          TapToSpeak was born when a family member faced jaw surgery and
-          couldn&apos;t speak during recovery. Communicating basic needs —
-          pain levels, water, questions for nurses — became a daily struggle.
-          We built this app so that anyone who temporarily or permanently
-          cannot speak can communicate quickly, clearly, and with dignity.
+          They weren&apos;t able to speak but we could hear them. I hope the
+          application helps you too.{'\u201D'}
         </p>
       </div>
 
