@@ -1,5 +1,8 @@
 import { useState, useRef, useCallback, useEffect, memo } from 'react';
 
+export const MAX_PROSE_CHARS = 2000;
+export const MAX_PROSE_PARAGRAPHS = 10;
+
 /**
  * Split text into paragraphs (double-newline separated),
  * filtering out empty segments.
@@ -27,6 +30,10 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
 
   const paragraphs = splitParagraphs(text);
   const hasParagraphs = paragraphs.length > 0;
+  const tooManyParagraphs = paragraphs.length > MAX_PROSE_PARAGRAPHS;
+  const charsRemaining = MAX_PROSE_CHARS - text.length;
+  const overLimit = tooManyParagraphs || charsRemaining < 0;
+  const canSpeak = hasParagraphs && !overLimit;
 
   // Sync with external speaking state (e.g. when TTS finishes)
   useEffect(() => {
@@ -47,7 +54,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
   }, [onStop]);
 
   const speakAll = useCallback(() => {
-    if (!hasParagraphs) return;
+    if (!canSpeak) return;
 
     stopRef.current = false;
     setSpeaking(true);
@@ -74,7 +81,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
     };
 
     speakNext();
-  }, [paragraphs, hasParagraphs, onSpeakParagraph]);
+  }, [paragraphs, canSpeak, onSpeakParagraph]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -97,7 +104,8 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          maxLength={MAX_PROSE_CHARS}
+          onChange={(e) => setText(e.target.value.slice(0, MAX_PROSE_CHARS))}
           placeholder="Type or paste a longer message here...&#10;&#10;Separate paragraphs with blank lines for natural pauses."
           aria-label="Long prose input"
           disabled={speaking}
@@ -169,34 +177,41 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
           </>
         ) : (
           <>
-            {/* Paragraph count */}
+            {/* Status: paragraph count + char counter */}
             <div
               style={{
                 flex: 1,
                 fontSize: 14,
-                color: '#94A3B8',
+                color: tooManyParagraphs ? '#EF4444' : '#94A3B8',
                 paddingLeft: 4,
               }}
             >
-              {hasParagraphs
-                ? `${paragraphs.length} paragraph${paragraphs.length !== 1 ? 's' : ''}`
-                : 'No text yet'}
+              {tooManyParagraphs
+                ? `${paragraphs.length}/${MAX_PROSE_PARAGRAPHS} paragraphs (too many)`
+                : hasParagraphs
+                  ? `${paragraphs.length} paragraph${paragraphs.length !== 1 ? 's' : ''}`
+                  : 'No text yet'}
+              {text.length > 0 && (
+                <span style={{ marginLeft: 8, color: charsRemaining < 200 ? '#F59E0B' : '#64748B' }}>
+                  {charsRemaining} chars left
+                </span>
+              )}
             </div>
             {/* Speak button */}
             <button
               onClick={speakAll}
-              disabled={!hasParagraphs}
+              disabled={!canSpeak}
               aria-label="Speak all paragraphs"
               style={{
                 height: 48,
                 minWidth: 100,
-                background: hasParagraphs ? '#14B8A6' : '#334155',
+                background: canSpeak ? '#14B8A6' : '#334155',
                 border: 'none',
                 borderRadius: 12,
-                color: hasParagraphs ? '#fff' : '#64748B',
+                color: canSpeak ? '#fff' : '#64748B',
                 fontSize: 16,
                 fontWeight: 600,
-                cursor: hasParagraphs ? 'pointer' : 'default',
+                cursor: canSpeak ? 'pointer' : 'default',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

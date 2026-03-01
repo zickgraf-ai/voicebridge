@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import LongProse, { splitParagraphs } from '../LongProse';
+import LongProse, { splitParagraphs, MAX_PROSE_CHARS, MAX_PROSE_PARAGRAPHS } from '../LongProse';
 
 describe('splitParagraphs', () => {
   it('splits on double newlines', () => {
@@ -142,6 +142,60 @@ describe('LongProse', () => {
     await user.click(screen.getByLabelText('Speak all paragraphs'));
 
     expect(screen.getByLabelText('Long prose input')).toBeDisabled();
+  });
+
+  it('exports expected limit constants', () => {
+    expect(MAX_PROSE_CHARS).toBe(2000);
+    expect(MAX_PROSE_PARAGRAPHS).toBe(10);
+  });
+
+  it('truncates input at MAX_PROSE_CHARS', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    const textarea = screen.getByLabelText('Long prose input');
+    // Type exactly at the limit
+    const longText = 'A'.repeat(MAX_PROSE_CHARS + 50);
+    await user.click(textarea);
+    // Use fireEvent for performance on large input
+    const { fireEvent } = await import('@testing-library/react');
+    fireEvent.change(textarea, { target: { value: longText } });
+
+    expect(textarea.value.length).toBe(MAX_PROSE_CHARS);
+  });
+
+  it('shows chars remaining when text is entered', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'Hello');
+
+    expect(screen.getByText(`${MAX_PROSE_CHARS - 5} chars left`)).toBeInTheDocument();
+  });
+
+  it('disables speak when too many paragraphs', async () => {
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    const textarea = screen.getByLabelText('Long prose input');
+    // Create MAX_PROSE_PARAGRAPHS + 1 paragraphs
+    const manyParagraphs = Array.from({ length: MAX_PROSE_PARAGRAPHS + 1 }, (_, i) => `P${i + 1}`).join('\n\n');
+    const { fireEvent } = await import('@testing-library/react');
+    fireEvent.change(textarea, { target: { value: manyParagraphs } });
+
+    expect(screen.getByText(/too many/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Speak all paragraphs')).toBeDisabled();
+  });
+
+  it('enables speak when paragraph count is at the limit', async () => {
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    const textarea = screen.getByLabelText('Long prose input');
+    // Create exactly MAX_PROSE_PARAGRAPHS paragraphs
+    const paragraphs = Array.from({ length: MAX_PROSE_PARAGRAPHS }, (_, i) => `P${i + 1}`).join('\n\n');
+    const { fireEvent } = await import('@testing-library/react');
+    fireEvent.change(textarea, { target: { value: paragraphs } });
+
+    expect(screen.getByLabelText('Speak all paragraphs')).not.toBeDisabled();
   });
 
   it('speaks multiple paragraphs sequentially', async () => {
