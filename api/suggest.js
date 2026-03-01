@@ -18,6 +18,12 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests' });
   }
 
+  // Body size limit: 32KB
+  const bodySize = JSON.stringify(req.body || {}).length;
+  if (bodySize > 32 * 1024) {
+    return res.status(413).json({ error: 'Request body too large' });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'Anthropic API key not configured' });
@@ -36,6 +42,23 @@ export default async function handler(req, res) {
 
   if (!allPhrases || allPhrases.length === 0) {
     return res.status(400).json({ error: 'allPhrases is required' });
+  }
+
+  // Array size limits
+  if (allPhrases.length > 500) {
+    return res.status(400).json({ error: 'allPhrases exceeds maximum of 500 items' });
+  }
+  if (recentPhrases.length > 20) {
+    return res.status(400).json({ error: 'recentPhrases exceeds maximum of 20 items' });
+  }
+  if (topFrequencies.length > 50) {
+    return res.status(400).json({ error: 'topFrequencies exceeds maximum of 50 items' });
+  }
+  if (medSchedules.length > 50) {
+    return res.status(400).json({ error: 'medSchedules exceeds maximum of 50 items' });
+  }
+  if (familyNames.length > 50) {
+    return res.status(400).json({ error: 'familyNames exceeds maximum of 50 items' });
   }
 
   const prompt = buildPrompt({
@@ -84,6 +107,15 @@ export default async function handler(req, res) {
   }
 }
 
+// Strip control characters from user-supplied strings before prompt interpolation.
+// The prompt itself is trusted (hardcoded template), but user-supplied values
+// (condition, familyNames, etc.) could contain control chars or injection attempts.
+function sanitizeForPrompt(str) {
+  if (typeof str !== 'string') return '';
+  // Remove C0/C1 control characters except common whitespace (tab, newline, CR)
+  return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+}
+
 function buildPrompt({ time, locationLabel, recentPhrases, topFrequencies, condition, medSchedules, familyNames, allPhrases }) {
   let ctx = `You are an AI assistant for an AAC (Augmentative and Alternative Communication) app. The user cannot speak and communicates by tapping phrase buttons.
 
@@ -92,19 +124,19 @@ Your task: Select and rank the 9 BEST phrases from the available pool for the us
 CONTEXT:
 - Current time: ${time || new Date().toLocaleTimeString()}`;
 
-  if (locationLabel) ctx += `\n- Location: ${locationLabel}`;
-  if (condition) ctx += `\n- Medical condition: ${condition}`;
+  if (locationLabel) ctx += `\n- Location: ${sanitizeForPrompt(locationLabel)}`;
+  if (condition) ctx += `\n- Medical condition: ${sanitizeForPrompt(condition)}`;
   if (medSchedules.length > 0) {
-    ctx += `\n- Medications: ${medSchedules.map(m => `${m.name} (next dose: ${m.nextDose})`).join(', ')}`;
+    ctx += `\n- Medications: ${medSchedules.map(m => `${sanitizeForPrompt(m.name)} (next dose: ${sanitizeForPrompt(m.nextDose)})`).join(', ')}`;
   }
   if (familyNames.length > 0) {
-    ctx += `\n- Family: ${familyNames.join(', ')}`;
+    ctx += `\n- Family: ${familyNames.map(n => sanitizeForPrompt(n)).join(', ')}`;
   }
   if (recentPhrases.length > 0) {
-    ctx += `\n- Last 3 phrases spoken: ${recentPhrases.join(' -> ')}`;
+    ctx += `\n- Last 3 phrases spoken: ${recentPhrases.map(p => sanitizeForPrompt(p)).join(' -> ')}`;
   }
   if (topFrequencies.length > 0) {
-    ctx += `\n- Most used phrases: ${topFrequencies.map(f => `"${f.text}" (${f.count}x)`).join(', ')}`;
+    ctx += `\n- Most used phrases: ${topFrequencies.map(f => `"${sanitizeForPrompt(f.text)}" (${f.count}x)`).join(', ')}`;
   }
 
   ctx += `\n\nAVAILABLE PHRASES (pick exactly 9 from this list):
