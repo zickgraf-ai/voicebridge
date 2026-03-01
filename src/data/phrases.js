@@ -1,5 +1,6 @@
 export const CATEGORIES = [
   { id: 'smart', label: 'Smart', icon: '\u2728', color: '#8B5CF6' },
+  { id: 'mine', label: 'Mine', icon: '\u2B50', color: '#F97316' },
   { id: 'build', label: 'Build', icon: '\u{1F517}', color: '#F59E0B' },
   { id: 'quick', label: 'Quick', icon: '\u26A1', color: '#EAB308' },
   { id: 'medical', label: 'Med', icon: '\u{1F3E5}', color: '#EF4444' },

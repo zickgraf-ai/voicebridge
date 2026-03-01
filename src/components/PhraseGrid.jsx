@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PhraseButton from './PhraseButton';
 
-export default function PhraseGrid({ items, onTap, color, pageSize, category }) {
+export default function PhraseGrid({ items, onTap, color, pageSize, category, deleteMode }) {
   const [page, setPage] = useState(0);
 
   // Reset to first page only when category changes (not on items reference change,
@@ -37,6 +37,7 @@ export default function PhraseGrid({ items, onTap, color, pageSize, category }) 
             icon={p.i}
             color={color}
             onTap={() => onTap(p)}
+            deleteMode={deleteMode}
           />
         ))}
       </div>

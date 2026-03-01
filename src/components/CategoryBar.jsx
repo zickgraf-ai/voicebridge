@@ -1,8 +1,22 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { CATEGORIES, TAB_SIZES } from '../data/phrases';
 
-export default memo(function CategoryBar({ active, onSelect, size }) {
+export default memo(function CategoryBar({ active, onSelect, size, categoryOrder }) {
   const s = TAB_SIZES[size] || TAB_SIZES.xl;
+
+  const orderedCategories = useMemo(() => {
+    if (!categoryOrder || categoryOrder.length === 0) return CATEGORIES;
+    const catMap = {};
+    for (const c of CATEGORIES) catMap[c.id] = c;
+    const ordered = categoryOrder
+      .filter((id) => catMap[id])
+      .map((id) => catMap[id]);
+    // Append any categories not in the order (safety net)
+    for (const c of CATEGORIES) {
+      if (!categoryOrder.includes(c.id)) ordered.push(c);
+    }
+    return ordered;
+  }, [categoryOrder]);
 
   return (
     <div
@@ -18,7 +32,7 @@ export default memo(function CategoryBar({ active, onSelect, size }) {
         padding: '2px 2px',
       }}
     >
-      {CATEGORIES.map((c) => (
+      {orderedCategories.map((c) => (
         <button
           key={c.id}
           role="tab"

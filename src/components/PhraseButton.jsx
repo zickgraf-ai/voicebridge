@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from 'react';
 
-export default memo(function PhraseButton({ text, icon, onTap, color }) {
+export default memo(function PhraseButton({ text, icon, onTap, color, deleteMode }) {
   const [flash, setFlash] = useState(false);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default memo(function PhraseButton({ text, icon, onTap, color }) {
         background: flash
           ? 'linear-gradient(135deg, #10B981, #059669)'
           : 'linear-gradient(135deg, #1E293B, #334155)',
-        border: `2px solid ${flash ? '#10B981' : color || '#475569'}`,
+        border: `2px solid ${deleteMode ? '#EF4444' : flash ? '#10B981' : color || '#475569'}`,
         borderRadius: 14,
         padding: '6px 4px',
         cursor: 'pointer',
@@ -36,8 +36,29 @@ export default memo(function PhraseButton({ text, icon, onTap, color }) {
         width: '100%',
         height: '100%',
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
+      {deleteMode && (
+        <span style={{
+          position: 'absolute',
+          top: 4,
+          right: 4,
+          width: 20,
+          height: 20,
+          borderRadius: '50%',
+          background: '#EF4444',
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: 1,
+        }}>
+          {'\u2715'}
+        </span>
+      )}
       <span style={{ fontSize: 28, lineHeight: 1 }}>{icon}</span>
       <span
         style={{

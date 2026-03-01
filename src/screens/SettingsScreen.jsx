@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useVoices } from '../hooks/useVoices';
 import { useLocation } from '../hooks/useLocation';
@@ -6,6 +6,7 @@ import { PREMIUM_VOICES, usePremiumSpeech } from '../hooks/usePremiumSpeech';
 import { getAudio, putAudio, clearAudio } from '../utils/audioCache';
 import AUDIO_MANIFEST from '../data/audioManifest.json';
 import SegmentControl from '../components/SegmentControl';
+import { CATEGORIES } from '../data/phrases';
 
 function speakTest(voices, settings) {
   if (!window.speechSynthesis) return;
@@ -19,9 +20,127 @@ function speakTest(voices, settings) {
 
 const LOCATION_LABELS = ['Hospital', 'Home', 'Car', 'Therapy', 'Doctor', 'Pharmacy'];
 
+function CategoryReorder({ categoryOrder, setCategoryOrder }) {
+  const defaultOrder = CATEGORIES.map((c) => c.id);
+  const order = categoryOrder && categoryOrder.length > 0 ? categoryOrder : defaultOrder;
+  const catMap = {};
+  for (const c of CATEGORIES) catMap[c.id] = c;
+
+  const move = (index, direction) => {
+    const newOrder = [...order];
+    const target = index + direction;
+    if (target < 0 || target >= newOrder.length) return;
+    [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+    setCategoryOrder(newOrder);
+  };
+
+  const reset = () => setCategoryOrder(null);
+
+  return (
+    <div
+      style={{
+        background: '#1E293B',
+        borderRadius: 12,
+        padding: 12,
+        border: '1px solid #334155',
+      }}
+    >
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+      }}>
+        <div style={{ color: '#94A3B8', fontSize: 13 }}>
+          {'\u{1F4CB}'} Category Order
+        </div>
+        {categoryOrder && categoryOrder.length > 0 && (
+          <button
+            onClick={reset}
+            style={{
+              background: 'transparent',
+              border: '1px solid #334155',
+              borderRadius: 6,
+              padding: '3px 8px',
+              color: '#94A3B8',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            Reset
+          </button>
+        )}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {order.map((id, i) => {
+          const c = catMap[id];
+          if (!c) return null;
+          return (
+            <div
+              key={id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: '#0F172A',
+                border: '1px solid #334155',
+                borderRadius: 8,
+                padding: '6px 10px',
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{c.icon}</span>
+              <span style={{ flex: 1, color: '#E2E8F0', fontSize: 14 }}>{c.label}</span>
+              <button
+                onClick={() => move(i, -1)}
+                disabled={i === 0}
+                aria-label={`Move ${c.label} up`}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 6,
+                  border: 'none',
+                  background: i === 0 ? '#1E293B' : '#334155',
+                  color: i === 0 ? '#475569' : '#E2E8F0',
+                  fontSize: 14,
+                  cursor: i === 0 ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {'\u2191'}
+              </button>
+              <button
+                onClick={() => move(i, 1)}
+                disabled={i === order.length - 1}
+                aria-label={`Move ${c.label} down`}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 6,
+                  border: 'none',
+                  background: i === order.length - 1 ? '#1E293B' : '#334155',
+                  color: i === order.length - 1 ? '#475569' : '#E2E8F0',
+                  fontSize: 14,
+                  cursor: i === order.length - 1 ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {'\u2193'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsScreen() {
-  const { state, setSettings, setProfile, setLocations } = useAppContext();
-  const { settings, profile, locations } = state;
+  const { state, setSettings, setProfile, setLocations, setCategoryOrder } = useAppContext();
+  const { settings, profile, locations, categoryOrder } = state;
   const voices = useVoices();
   const { coords, locationLabel, permissionGranted, requestPermission } = useLocation(locations || []);
   const { importVoice, removeVoice, voiceStatus } = usePremiumSpeech();
@@ -675,6 +794,12 @@ export default function SettingsScreen() {
           { label: 'Normal', value: 'normal' },
           { label: 'Large', value: 'large' },
         ]}
+      />
+
+      {/* Category Order */}
+      <CategoryReorder
+        categoryOrder={categoryOrder}
+        setCategoryOrder={setCategoryOrder}
       />
 
       {/* Pain Reminder */}

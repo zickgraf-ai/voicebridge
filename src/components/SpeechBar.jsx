@@ -77,41 +77,39 @@ export default memo(function SpeechBar({
           />
         </div>
 
-        {/* Suggestion Chips (44px, conditional) */}
+        {/* Autocomplete Dropdown (vertical list, conditional) */}
         {suggestions.length > 0 && (
           <div
-            role="list"
+            role="listbox"
             aria-label="Typing suggestions"
             aria-live="polite"
             style={{
               display: 'flex',
-              gap: 8,
-              padding: '0 12px',
-              height: 44,
-              alignItems: 'center',
-              overflowX: 'auto',
+              flexDirection: 'column',
+              padding: '0 12px 4px',
+              maxHeight: 180,
+              overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
-              scrollbarWidth: 'none',
+              scrollbarWidth: 'thin',
               flexShrink: 0,
             }}
           >
             {suggestions.map((s) => (
               <button
                 key={s}
-                role="listitem"
+                role="option"
                 onClick={() => onSuggestionTap(s)}
                 style={{
-                  background: '#334155',
+                  background: 'transparent',
                   border: 'none',
-                  borderRadius: 22,
-                  padding: '8px 16px',
-                  height: 40,
+                  borderBottom: '1px solid #334155',
+                  padding: '10px 8px',
                   color: '#E2E8F0',
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: 500,
                   cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
+                  textAlign: 'left',
+                  width: '100%',
                 }}
               >
                 {s}
