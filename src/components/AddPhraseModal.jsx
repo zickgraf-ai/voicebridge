@@ -1,11 +1,62 @@
 import { useState } from 'react';
 
-const EMOJI_OPTIONS = [
-  '\u2B50', '\u2764\uFE0F', '\u{1F44D}', '\u{1F44B}', '\u{1F64F}',
-  '\u{1F4AC}', '\u{1F4A1}', '\u{1F3E0}', '\u{1F4DE}', '\u{1F4A7}',
-  '\u{1F35C}', '\u{1F48A}', '\u{1F6BB}', '\u{1F6CF}\uFE0F', '\u{1F4FA}',
-  '\u{1F3B5}', '\u{1F4D6}', '\u270B', '\u{1F60A}', '\u{1F622}',
-  '\u{1F62E}', '\u{1F914}', '\u{1F917}', '\u{1F634}',
+// Organized by category for AAC communication
+const EMOJI_SECTIONS = [
+  {
+    label: 'Common',
+    emojis: [
+      '\u2B50', '\u2764\uFE0F', '\u{1F44D}', '\u{1F44E}', '\u{1F44B}',
+      '\u{1F64F}', '\u270B', '\u{1F4AC}', '\u{1F4A1}', '\u2705',
+      '\u274C', '\u2753', '\u{1F514}', '\u23F0',
+    ],
+  },
+  {
+    label: 'Medical',
+    emojis: [
+      '\u{1F48A}', '\u{1FA79}', '\u{1F912}', '\u{1F915}',
+      '\u{1FA7A}', '\u{1F9BD}', '\u{1F489}', '\u{1F3E5}',
+      '\u{1F469}\u200D\u2695\uFE0F', '\u{1F9D1}\u200D\u2695\uFE0F',
+      '\u{1F9B7}', '\u{1F9CA}',
+    ],
+  },
+  {
+    label: 'Food & Drink',
+    emojis: [
+      '\u{1F4A7}', '\u{1F95B}', '\u{1F964}', '\u2615',
+      '\u{1F35C}', '\u{1F958}', '\u{1F366}', '\u{1F34E}',
+      '\u{1F9C3}', '\u{1F37D}\uFE0F', '\u{1F944}', '\u{1F36F}',
+    ],
+  },
+  {
+    label: 'Comfort & Body',
+    emojis: [
+      '\u{1F6CF}\uFE0F', '\u{1F6BB}', '\u{1F6BF}', '\u{1F321}\uFE0F',
+      '\u2744\uFE0F', '\u{1F525}', '\u{1F31E}', '\u{1F319}',
+      '\u{1F4A4}', '\u{1F9F4}', '\u{1F9F9}', '\u{1F6AA}',
+    ],
+  },
+  {
+    label: 'People & Places',
+    emojis: [
+      '\u{1F3E0}', '\u{1F697}', '\u{1F464}', '\u{1F465}',
+      '\u{1F4DE}', '\u{1F4F1}', '\u{1F4F7}', '\u{1F46A}',
+    ],
+  },
+  {
+    label: 'Feelings',
+    emojis: [
+      '\u{1F60A}', '\u{1F622}', '\u{1F62E}', '\u{1F914}',
+      '\u{1F917}', '\u{1F634}', '\u{1F630}', '\u{1F621}',
+      '\u{1F622}', '\u{1F97A}', '\u{1F60C}', '\u{1F4AA}',
+    ],
+  },
+  {
+    label: 'Activities',
+    emojis: [
+      '\u{1F4FA}', '\u{1F3B5}', '\u{1F4D6}', '\u{1F3AE}',
+      '\u{1F6B6}', '\u{1F9D8}', '\u270D\uFE0F', '\u{1F4DD}',
+    ],
+  },
 ];
 
 export default function AddPhraseModal({ onAdd, onClose }) {
@@ -71,36 +122,46 @@ export default function AddPhraseModal({ onAdd, onClose }) {
         />
 
         {/* Emoji picker */}
-        <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8 }}>
+        <div style={{ color: '#94A3B8', fontSize: 13, marginBottom: 6 }}>
           Choose an icon:
         </div>
         <div
           style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 6,
+            maxHeight: 220,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
             marginBottom: 16,
+            paddingRight: 4,
           }}
         >
-          {EMOJI_OPTIONS.map((e) => (
-            <button
-              key={e}
-              onClick={() => setEmoji(e)}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 10,
-                border: emoji === e ? '2px solid #F97316' : '2px solid #33415500',
-                background: emoji === e ? '#F9731622' : '#0F172A',
-                fontSize: 22,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {e}
-            </button>
+          {EMOJI_SECTIONS.map((section) => (
+            <div key={section.label} style={{ marginBottom: 8 }}>
+              <div style={{ color: '#64748B', fontSize: 11, marginBottom: 4, fontWeight: 600 }}>
+                {section.label}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {section.emojis.map((e, i) => (
+                  <button
+                    key={section.label + '-' + i}
+                    onClick={() => setEmoji(e)}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
+                      border: emoji === e ? '2px solid #F97316' : '2px solid #33415500',
+                      background: emoji === e ? '#F9731622' : '#0F172A',
+                      fontSize: 22,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
 
