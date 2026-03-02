@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy Policy — TapToSpeak</title>
-  <meta name="description" content="TapToSpeak does not collect, store, or transmit any personal data. Everything stays on your device.">
+  <meta name="description" content="TapToSpeak privacy policy. Learn how the app handles your data, what information is processed, and how your privacy is protected.">
   <meta property="og:title" content="Privacy Policy — TapToSpeak">
-  <meta property="og:description" content="TapToSpeak does not collect, store, or transmit any personal data. Everything stays on your device.">
+  <meta property="og:description" content="TapToSpeak privacy policy. Learn how the app handles your data.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://taptospeak.app/privacy">
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -39,32 +39,53 @@
 
       <div class="page-content">
         <div class="highlight">
-          <strong>The short version:</strong> TapToSpeak does not collect, store, or transmit any personal data. Everything stays on your device.
+          <strong>The short version:</strong> TapToSpeak does not require an account or login. Your personal data (profile, settings, communication history) is stored only on your device. When you use premium voice or smart suggestion features, limited data is sent to third-party AI services to process your request.
         </div>
 
-        <h2>What data does TapToSpeak collect?</h2>
-        <p>TapToSpeak does not collect any personal information. The app does not require an account, login, email address, or any form of registration. We do not collect names, health information, usage analytics, device identifiers, location data, or any other personal data.</p>
+        <h2>What data is stored on my device?</h2>
+        <p>TapToSpeak stores the following data locally on your device using your browser's localStorage and IndexedDB:</p>
+        <ul>
+          <li><strong>Profile information</strong> you enter (name, date of birth, address, medical condition, family members, medications)</li>
+          <li><strong>App settings</strong> (voice selection, speed, button sizes, reminder intervals)</li>
+          <li><strong>Communication history</strong> (phrases you have spoken, with timestamps)</li>
+          <li><strong>Phrase usage frequency</strong> (counts of how often each phrase is used)</li>
+          <li><strong>Cached audio files</strong> (premium voice audio stored in IndexedDB for faster playback)</li>
+          <li><strong>Saved locations</strong> (if you use the location feature)</li>
+        </ul>
+        <p>This data never leaves your device unless you explicitly use the backup/export feature or use features that require cloud processing (see below).</p>
 
-        <h2>What happens to the text I type?</h2>
-        <p>The text you type into TapToSpeak is processed entirely on your device using Apple's built-in text-to-speech engine (AVSpeechSynthesizer). Your text is never transmitted to any server, cloud service, or third party. When you close the app or clear a message, the text exists only in your device's local memory and is not persisted.</p>
+        <h2>What data is sent to third-party services?</h2>
+        <p>TapToSpeak uses two third-party AI services to provide premium features. Data is sent only when these features are actively used:</p>
 
-        <h2>Does TapToSpeak use any third-party services?</h2>
-        <p>No. TapToSpeak does not integrate any third-party analytics, advertising, crash reporting, or tracking services. The app contains no third-party SDKs that collect data.</p>
+        <h3>Premium text-to-speech (OpenAI)</h3>
+        <p>When you speak a phrase using a premium voice, the text of your message is sent to OpenAI's text-to-speech API to generate audio. The audio is then cached on your device so the same phrase does not need to be sent again. OpenAI's data usage policy applies to this processing.</p>
 
-        <h2>Does TapToSpeak access the internet?</h2>
-        <p>No. TapToSpeak works entirely offline. The app does not make any network requests. No data is sent to or received from any server.</p>
+        <h3>Smart suggestions (Anthropic Claude)</h3>
+        <p>When smart suggestions are active, the app sends contextual information to Anthropic's Claude API to rank and suggest relevant phrases. This context may include: time of day, your location label (e.g. "Hospital" or "Home" &mdash; not precise coordinates), your recently spoken phrases, your most-used phrases, your medical condition, medication schedule, and family member names. Anthropic's data usage policy applies to this processing.</p>
 
-        <h2>Does TapToSpeak access the microphone, camera, or other device features?</h2>
-        <p>TapToSpeak only uses your device's speaker (audio output) to speak text aloud. It does not access your microphone, camera, contacts, photos, location, or any other device sensors or data.</p>
+        <h3>Fallback: device speech engine</h3>
+        <p>When used offline or when premium voices are unavailable, TapToSpeak uses your browser's built-in Web Speech API. In this mode, no data is sent to any server &mdash; speech is generated entirely on your device.</p>
+
+        <h2>Does TapToSpeak access location?</h2>
+        <p>TapToSpeak may request access to your device's location to provide context-aware phrase suggestions (e.g. suggesting different phrases at the hospital vs. at home). Location access is optional and requires your explicit permission. Your precise coordinates are used only on-device to match against your saved locations. Only the location label (not coordinates) is sent to the suggestion service.</p>
+
+        <h2>Does TapToSpeak use analytics or tracking?</h2>
+        <p>No. TapToSpeak does not use any analytics, advertising, crash reporting, or tracking services. There are no third-party SDKs that monitor your behavior.</p>
+
+        <h2>Does TapToSpeak require an account?</h2>
+        <p>No. TapToSpeak does not require an account, login, email address, or any form of registration.</p>
+
+        <h2>Backup and export</h2>
+        <p>TapToSpeak offers an optional backup feature that encrypts your profile and settings using AES-256-GCM encryption with a password you provide. The encrypted data is encoded into a URL that you can save or share. No backup data is stored on any server.</p>
 
         <h2>Children's Privacy</h2>
-        <p>TapToSpeak does not collect any data from any user, including children. The app is safe for users of all ages.</p>
+        <p>TapToSpeak does not knowingly collect personal information from children. The app is designed for patients of all ages, but a parent or guardian should supervise use by children, particularly when features that send data to third-party services are enabled.</p>
 
         <h2>Data Retention</h2>
-        <p>There is no data to retain. TapToSpeak stores no information on any server. Any text you type exists only temporarily in the app's local memory on your device.</p>
+        <p>All data stored by TapToSpeak resides on your device. You can clear all app data at any time by clearing your browser's site data for the app. TapToSpeak does not store any user data on its own servers. Data sent to OpenAI and Anthropic is subject to their respective data retention policies.</p>
 
         <h2>Changes to This Privacy Policy</h2>
-        <p>If we update this privacy policy, we will post the revised version at this URL (taptospeak.app/privacy) with an updated &ldquo;Last updated&rdquo; date. Since we collect no data and have no user accounts, we have no way to notify users directly&nbsp;&mdash; please check this page periodically.</p>
+        <p>If we update this privacy policy, we will post the revised version at this URL (taptospeak.app/privacy) with an updated &ldquo;Last updated&rdquo; date. Since we do not have user accounts, we have no way to notify users directly&nbsp;&mdash; please check this page periodically.</p>
 
         <h2>Contact</h2>
         <p>If you have questions about this privacy policy, contact us at: <a href="mailto:jeff@taptospeak.app">jeff@taptospeak.app</a></p>
