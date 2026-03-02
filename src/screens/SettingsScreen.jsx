@@ -613,18 +613,6 @@ export default function SettingsScreen({ onNavigate }) {
         </div>
       )}
 
-      {/* Speed */}
-      <SegmentControl
-        label={'\u{1F50A} Speed'}
-        value={settings.voiceRate}
-        onChange={(v) => update('voiceRate', v)}
-        options={[
-          { label: 'Slow', value: 0.7 },
-          { label: 'Normal', value: 0.9 },
-          { label: 'Fast', value: 1.1 },
-        ]}
-      />
-
       {/* Test Voice */}
       <button
         onClick={isPremium ? testPremiumVoice : () => speakTest(voices, settings)}
