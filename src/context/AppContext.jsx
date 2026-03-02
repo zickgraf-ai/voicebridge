@@ -27,7 +27,7 @@ const DEFAULT_SETTINGS = {
   tabSize: 'xl',
   painReminder: 120,
   caregiverAlert: 6,
-  voiceProvider: 'device',
+  voiceProvider: 'premium',
   premiumVoice: 'nova',
   premiumOnly: false,
 };
