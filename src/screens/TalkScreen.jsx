@@ -92,9 +92,9 @@ export default function TalkScreen() {
         const idx = CATEGORIES.findIndex((c) => c.id === prev);
         const next = idx + direction;
         if (next < 0 || next >= CATEGORIES.length) return prev;
-        setShowPain(false);
         return CATEGORIES[next].id;
       });
+      setShowPain(false);
     },
     []
   );
