@@ -286,13 +286,13 @@ export default function AboutScreen({ onBack }) {
         {[
           {
             label: 'Privacy Policy',
-            url: 'https://zickgraf.ai/taptospeak/privacy',
+            url: 'https://taptospeak.app/privacy',
           },
           {
             label: 'Terms of Use',
-            url: 'https://zickgraf.ai/taptospeak/terms',
+            url: 'https://taptospeak.app/terms',
           },
-          { label: 'Website', url: 'https://zickgraf.ai/taptospeak' },
+          { label: 'Website', url: 'https://taptospeak.app' },
         ].map((link, i, arr) => (
           <a
             key={link.label}
