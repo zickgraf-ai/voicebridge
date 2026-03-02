@@ -22,16 +22,26 @@ Multiple Claude sessions may be running against this repo concurrently. To avoid
 - **Workflow after pushing a branch:**
   1. Push the branch → GitHub Action auto-creates (or updates) the PR.
   2. Vercel detects the PR and builds a preview deploy.
-  3. **IMPORTANT — Always fetch and share the preview URL.** After pushing, use `curl` to query the GitHub API for the PR number and commit statuses to find the Vercel preview URL. Give the user the PR link AND the Vercel preview URL so they can test the changes. Example API calls:
-     - `curl -s https://api.github.com/repos/zickgraf-ai/taptospeak/pulls?head=zickgraf-ai:{branch}` → get PR number
-     - `curl -s https://api.github.com/repos/zickgraf-ai/taptospeak/statuses/{sha}` → get Vercel deploy URL
-     - The preview URL is in the Vercel bot comment on the PR or in the commit status `target_url`.
+  3. **MANDATORY — Always fetch and share the preview URL after every push. Do NOT skip this step.**
+     Run these `curl` commands immediately after pushing to get the PR link and Vercel preview URL, then present both to the user:
+     ```bash
+     # Step 1: Get the PR number
+     curl -s "https://api.github.com/repos/zickgraf-ai/taptospeak/pulls?head=zickgraf-ai:{branch}"
+     # Step 2: Get the commit SHA, then query statuses for Vercel deploy URL
+     curl -s "https://api.github.com/repos/zickgraf-ai/taptospeak/statuses/{sha}"
+     # Step 3: Get the Vercel preview URL from PR comments
+     curl -s "https://api.github.com/repos/zickgraf-ai/taptospeak/issues/{pr_number}/comments" | grep -o 'https://[a-zA-Z0-9._-]*\.vercel\.app'
+     ```
+     **You MUST give the user both links in this format:**
+     - **PR**: https://github.com/zickgraf-ai/taptospeak/pull/{N}
+     - **Preview**: {vercel preview URL}
+     - **Version**: {version from package.json}
   4. Test changes on the preview URL before merging to main.
 - The system may assign a required branch name (e.g., `claude/implement-issue-6-RRX3K`). Use whatever branch name the system assigns.
 
 ### Claude Code on the web (claude.ai/code) — notes
 - The `gh` CLI is **not installed** and cannot be installed (no outbound apt access).
-- The git proxy only supports git operations (push/pull/fetch), not the GitHub REST API.
+- `curl` to the GitHub REST API **does work** — use it to fetch PR numbers, commit statuses, and Vercel preview URLs.
 - PR creation is handled automatically by the GitHub Action above — no need for `gh` or compare URLs.
 
 ## Deployment
