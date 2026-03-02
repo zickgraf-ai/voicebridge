@@ -1,11 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock rateLimit to always allow
+// Mock rateLimit to always allow (used by suggest.js, not speak.js)
 vi.mock('../rateLimit.js', () => ({
   checkRateLimit: () => ({ allowed: true, remaining: 99, resetIn: 60000 }),
 }));
 
-// Helper to create mock req/res
+// --- Helpers for speak.js (Edge Function: Request → Response) ---
+
+function makeEdgeRequest(body) {
+  return new Request('https://localhost/api/speak', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-forwarded-for': '1.2.3.4',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+// --- Helpers for suggest.js (Node.js serverless: req/res) ---
+
 function makeReq(body) {
   return {
     method: 'POST',
@@ -38,29 +52,27 @@ function makeRes() {
   return res;
 }
 
-describe('api/speak — body size limits', () => {
+describe('api/speak — body size limits (Edge Function)', () => {
   let handler;
 
   beforeEach(async () => {
-    // Dynamic import to get fresh module after mocks
     const mod = await import('../../speak.js');
     handler = mod.default;
   });
 
   it('rejects body larger than 2KB with 413', async () => {
-    const bigText = 'x'.repeat(500); // valid text length
+    const bigText = 'x'.repeat(500);
     const body = { text: bigText, voice: 'nova', extraJunk: 'y'.repeat(2000) };
-    const req = makeReq(body);
-    const res = makeRes();
+    const request = makeEdgeRequest(body);
 
-    await handler(req, res);
+    const response = await handler(request);
 
-    expect(res.statusCode).toBe(413);
-    expect(res.body.error).toMatch(/too large/i);
+    expect(response.status).toBe(413);
+    const data = await response.json();
+    expect(data.error).toMatch(/too large/i);
   });
 
   it('allows body under 2KB', async () => {
-    // Mock fetch so it doesn't actually call OpenAI
     const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -69,16 +81,14 @@ describe('api/speak — body size limits', () => {
     });
 
     const body = { text: 'Hello', voice: 'nova', speed: 1.0 };
-    const req = makeReq(body);
-    const res = makeRes();
+    const request = makeEdgeRequest(body);
 
-    // Set OPENAI_API_KEY for the test
     process.env.OPENAI_API_KEY = 'test-key';
-    await handler(req, res);
+    const response = await handler(request);
     delete process.env.OPENAI_API_KEY;
 
     // Should NOT be 413 — it'll hit the OpenAI call and get 500 from mock
-    expect(res.statusCode).not.toBe(413);
+    expect(response.status).not.toBe(413);
 
     globalThis.fetch = originalFetch;
   });
@@ -107,7 +117,6 @@ describe('api/suggest — body size and array limits', () => {
   });
 
   it('rejects allPhrases > 500 items with 400', async () => {
-    // Use very short strings to stay under the 32KB body limit
     const body = {
       allPhrases: Array.from({ length: 501 }, (_, i) => `P${i}`),
     };
@@ -146,7 +155,6 @@ describe('api/suggest — body size and array limits', () => {
     const req = makeReq(body);
     const res = makeRes();
 
-    // Mock fetch to prevent actual API call
     const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -158,7 +166,6 @@ describe('api/suggest — body size and array limits', () => {
     await handler(req, res);
     delete process.env.ANTHROPIC_API_KEY;
 
-    // Should pass validation — won't be 413 or 400 for array limits
     expect(res.statusCode).not.toBe(413);
     expect(res.statusCode).not.toBe(400);
 

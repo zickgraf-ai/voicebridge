@@ -1,42 +1,79 @@
-// Vercel serverless function: POST /api/speak
-// Calls OpenAI TTS API to generate speech audio
+// Vercel Edge Function: POST /api/speak
+// Calls OpenAI TTS API to generate speech audio.
+// Runs on the Edge Runtime for lower cold-start latency (~50ms vs ~250ms).
 
-import { checkRateLimit } from './lib/rateLimit.js';
+export const config = { runtime: 'edge' };
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+// In-memory rate limiter (per-isolate, same approach as serverless version)
+const ipMap = new Map();
+
+function checkRateLimit(ip, limit, windowMs) {
+  const now = Date.now();
+  for (const [key, entry] of ipMap) {
+    if (now > entry.resetTime) ipMap.delete(key);
+  }
+  const entry = ipMap.get(ip);
+  if (!entry || now > entry.resetTime) {
+    ipMap.set(ip, { count: 1, resetTime: now + windowMs });
+    return { allowed: true, remaining: limit - 1, resetIn: windowMs };
+  }
+  entry.count += 1;
+  const resetIn = entry.resetTime - now;
+  if (entry.count > limit) return { allowed: false, remaining: 0, resetIn };
+  return { allowed: true, remaining: limit - entry.count, resetIn };
+}
+
+export default async function handler(request) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204 });
+  }
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
   // Rate limit: 30 requests per minute per IP
-  const rateCheck = checkRateLimit(req, 30, 60_000);
-  res.setHeader('X-RateLimit-Limit', '30');
-  res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
-  res.setHeader('X-RateLimit-Reset', String(Math.ceil((Date.now() + rateCheck.resetIn) / 1000)));
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  const rateCheck = checkRateLimit(ip, 30, 60_000);
+  const rateHeaders = {
+    'X-RateLimit-Limit': '30',
+    'X-RateLimit-Remaining': String(rateCheck.remaining),
+    'X-RateLimit-Reset': String(Math.ceil((Date.now() + rateCheck.resetIn) / 1000)),
+  };
+
   if (!rateCheck.allowed) {
-    res.setHeader('Retry-After', String(Math.ceil(rateCheck.resetIn / 1000)));
-    return res.status(429).json({ error: 'Too many requests' });
+    return Response.json({ error: 'Too many requests' }, {
+      status: 429,
+      headers: { ...rateHeaders, 'Retry-After': String(Math.ceil(rateCheck.resetIn / 1000)) },
+    });
   }
 
   // Body size limit: 2KB
-  const bodySize = JSON.stringify(req.body || {}).length;
-  if (bodySize > 2048) {
-    return res.status(413).json({ error: 'Request body too large' });
+  let body;
+  try {
+    const rawBody = await request.text();
+    if (rawBody.length > 2048) {
+      return Response.json({ error: 'Request body too large' }, { status: 413, headers: rateHeaders });
+    }
+    body = JSON.parse(rawBody);
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400, headers: rateHeaders });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'OpenAI API key not configured' });
+    return Response.json({ error: 'OpenAI API key not configured' }, { status: 500, headers: rateHeaders });
   }
 
-  const { text, voice = 'nova', speed = 1.0 } = req.body || {};
+  const { text, voice = 'nova', speed = 1.0 } = body;
   if (!text || typeof text !== 'string' || text.length > 500) {
-    return res.status(400).json({ error: 'Invalid text (required, max 500 chars)' });
+    return Response.json({ error: 'Invalid text (required, max 500 chars)' }, { status: 400, headers: rateHeaders });
   }
 
   const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
   if (!validVoices.includes(voice)) {
-    return res.status(400).json({ error: 'Invalid voice' });
+    return Response.json({ error: 'Invalid voice' }, { status: 400, headers: rateHeaders });
   }
 
   try {
@@ -59,15 +96,20 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI TTS error:', response.status, errorText);
-      return res.status(response.status).json({ error: 'TTS API error' });
+      return Response.json({ error: 'TTS API error' }, { status: response.status, headers: rateHeaders });
     }
 
     const buffer = await response.arrayBuffer();
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(Buffer.from(buffer));
+    return new Response(buffer, {
+      status: 200,
+      headers: {
+        ...rateHeaders,
+        'Content-Type': 'audio/mpeg',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
   } catch (err) {
     console.error('TTS request failed:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return Response.json({ error: 'Internal server error' }, { status: 500, headers: rateHeaders });
   }
 }

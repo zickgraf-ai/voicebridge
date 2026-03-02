@@ -372,15 +372,26 @@ export function usePremiumSpeech() {
       return;
     }
 
-    // iOS Safari: create Audio element synchronously in the user gesture handler
-    const audio = new Audio();
-    audio.volume = 1;
-    audioRef.current = audio;
-
     const key = voiceName + ':' + text;
 
-    // ----- PATH A: Bundled static audio -----
+    // Determine upfront whether we need an HTML Audio element (PATH A/B/D)
+    // or can go straight to Web Speech (PATH C). Avoids creating an Audio
+    // element that is immediately discarded, which on iOS Safari can
+    // interfere with the audio session and cause faint/muted Web Speech.
     const bundledUrl = getBundledUrl(voiceName, text);
+    const hasCached = hasCachedKeySync(key);
+    const needsAudio = bundledUrl || hasCached || premiumOnly;
+
+    let audio = null;
+    if (needsAudio) {
+      // iOS Safari: create Audio element synchronously in the user gesture handler
+      audio = new Audio();
+      audio.volume = 1;
+      audio.playbackRate = voiceRate || 0.9;
+      audioRef.current = audio;
+    }
+
+    // ----- PATH A: Bundled static audio -----
     if (bundledUrl) {
       logSpeech('A', text);
       audio.src = bundledUrl;
@@ -458,10 +469,20 @@ export function usePremiumSpeech() {
     }
 
     // ----- PATH C / D: Cache miss -----
+    // If we reach here with an Audio element (e.g. PATH B cache was stale),
+    // clean it up before falling through to avoid iOS audio session issues.
+    if (audio && !premiumOnly) {
+      audio.src = '';
+      if (audioRef.current === audio) audioRef.current = null;
+      audio = null;
+    }
+
     if (!premiumOnly) {
-      // PATH C: Start Web Speech fallback, background cache
+      // PATH C: Start Web Speech fallback immediately (no Audio element
+      // was created, so no iOS audio session cleanup needed), then
+      // background-fetch premium audio for next time.
       logSpeech('C', text);
-      safeWebSpeechFallback(text, voiceRate, webVoices, webVoiceURI, audioRef);
+      speakWebSpeech(text, voiceRate, webVoices, webVoiceURI);
 
       // Double-check async (maybe sync set wasn't populated yet)
       const blob = await getAudio(key);
@@ -477,7 +498,7 @@ export function usePremiumSpeech() {
         const resp = await fetch('/api/speak', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: voiceName }),
+          body: JSON.stringify({ text, voice: voiceName, speed: voiceRate || 0.9 }),
         });
         if (audioRef.current !== null) return; // another tap took over
         if (resp.ok) {
@@ -502,7 +523,7 @@ export function usePremiumSpeech() {
         const resp = await fetch('/api/speak', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: voiceName }),
+          body: JSON.stringify({ text, voice: voiceName, speed: voiceRate || 0.9 }),
         });
         if (audioRef.current !== audio) return;
         if (resp.ok) {
@@ -519,6 +540,7 @@ export function usePremiumSpeech() {
             URL.revokeObjectURL(url);
             if (audioRef.current === audio) audioRef.current = null;
           };
+          audio.playbackRate = voiceRate || 0.9;
           audio.play().catch(() => URL.revokeObjectURL(url));
         } else {
           const msg = resp.status === 429
@@ -550,6 +572,7 @@ export function usePremiumSpeech() {
       const url = URL.createObjectURL(blob);
       const audio = new Audio();
       audio.volume = 1;
+      audio.playbackRate = voiceRate || 0.9;
       audio.src = url;
       audioRef.current = audio;
       audio.onended = () => {

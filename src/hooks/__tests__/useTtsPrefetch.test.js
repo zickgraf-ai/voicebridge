@@ -125,7 +125,7 @@ describe('useTtsPrefetch', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('triggers prefetch after 600ms debounce', async () => {
+  it('triggers prefetch after 400ms debounce', async () => {
     seedPremiumSettings();
     renderHook(
       ({ text }) => useTtsPrefetch(text),
@@ -134,18 +134,18 @@ describe('useTtsPrefetch', () => {
 
     // Not yet at debounce threshold
     await act(async () => {
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(300);
     });
     expect(mockFetch).not.toHaveBeenCalled();
 
     // Cross the debounce threshold
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(200);
     });
 
     expect(mockFetch).toHaveBeenCalledWith('/api/speak', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ text: 'I need water please', voice: 'nova' }),
+      body: JSON.stringify({ text: 'I need water please', voice: 'nova', speed: 0.9 }),
     }));
   });
 
@@ -158,22 +158,22 @@ describe('useTtsPrefetch', () => {
 
     // Advance partway through debounce
     await act(async () => {
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(300);
     });
     expect(mockFetch).not.toHaveBeenCalled();
 
     // User types more — text changes, resets the timer
     rerender({ text: 'I need water please' });
 
-    // Original timer would have fired at 600ms, but it was reset
+    // Original timer would have fired at 400ms, but it was reset
     await act(async () => {
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(300);
     });
     expect(mockFetch).not.toHaveBeenCalled();
 
-    // New timer fires at 600ms from the rerender
+    // New timer fires at 400ms from the rerender
     await act(async () => {
-      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(200);
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -188,7 +188,7 @@ describe('useTtsPrefetch', () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(500);
     });
 
     expect(audioCache.putAudio).toHaveBeenCalledWith(
@@ -206,7 +206,7 @@ describe('useTtsPrefetch', () => {
 
     // First prefetch
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(500);
     });
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
@@ -214,7 +214,7 @@ describe('useTtsPrefetch', () => {
     rerender({ text: 'I need water please' });
 
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(500);
     });
 
     // Should not have fetched again
@@ -231,7 +231,7 @@ describe('useTtsPrefetch', () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(500);
     });
 
     // Should not throw or store anything
@@ -248,7 +248,7 @@ describe('useTtsPrefetch', () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(500);
     });
 
     // Should not throw or store anything
@@ -312,11 +312,11 @@ describe('useTtsPrefetch', () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(500);
     });
 
     expect(mockFetch).toHaveBeenCalledWith('/api/speak', expect.objectContaining({
-      body: JSON.stringify({ text: 'I need water please', voice: 'shimmer' }),
+      body: JSON.stringify({ text: 'I need water please', voice: 'shimmer', speed: 0.9 }),
     }));
     expect(audioCache.putAudio).toHaveBeenCalledWith(
       'shimmer:I need water please',
@@ -332,7 +332,7 @@ describe('useTtsPrefetch', () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(500);
     });
 
     // Verify that fetch was called with a signal
