@@ -203,6 +203,40 @@ export default function SettingsScreen({ onNavigate }) {
         {'\u2699\uFE0F'} Settings
       </h2>
 
+      {/* About TapToSpeak — prominent at top */}
+      <button
+        onClick={() => onNavigate && onNavigate('about')}
+        style={{
+          background: 'linear-gradient(135deg, #0C4A6E, #164E63)',
+          border: '1px solid #0E7490',
+          borderRadius: 14,
+          padding: '14px 16px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          boxShadow: '0 2px 12px rgba(14, 116, 144, 0.2)',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img
+            src="/icon-192.png"
+            alt=""
+            style={{ width: 36, height: 36, borderRadius: 8 }}
+          />
+          <span>
+            <span style={{ color: '#F1F5F9', fontSize: 15, fontWeight: 600, display: 'block' }}>
+              About TapToSpeak
+            </span>
+            <span style={{ color: '#67E8F9', fontSize: 12 }}>
+              Our story, contact & partnerships
+            </span>
+          </span>
+        </span>
+        <span style={{ color: '#67E8F9', fontSize: 16 }}>{'\u203A'}</span>
+      </button>
+
       {/* Auto-speak toggle */}
       <div
         style={{
@@ -978,28 +1012,6 @@ export default function SettingsScreen({ onNavigate }) {
           </div>
         )}
       </div>
-
-      {/* About */}
-      <button
-        onClick={() => onNavigate && onNavigate('about')}
-        style={{
-          background: '#1E293B',
-          border: '1px solid #334155',
-          borderRadius: 12,
-          padding: '12px 14px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-        }}
-      >
-        <span style={{ color: '#E2E8F0', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 16 }}>{'\u2139\uFE0F'}</span>
-          About TapToSpeak
-        </span>
-        <span style={{ color: '#64748B', fontSize: 13 }}>{'\u203A'}</span>
-      </button>
 
       {/* Version */}
       <div
