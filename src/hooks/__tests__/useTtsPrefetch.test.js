@@ -84,7 +84,7 @@ describe('useTtsPrefetch', () => {
   });
 
   it('does not prefetch when voiceProvider is device', async () => {
-    // Default settings have voiceProvider: 'device'
+    seedPremiumSettings({ voiceProvider: 'device' });
     const { rerender } = renderHook(
       ({ text }) => useTtsPrefetch(text),
       { wrapper, initialProps: { text: 'I need some water please' } }

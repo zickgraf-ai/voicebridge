@@ -1,8 +1,15 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef, useCallback } from 'react';
 import { CATEGORIES, TAB_SIZES } from '../data/phrases';
 
 export default memo(function CategoryBar({ active, onSelect, size }) {
   const s = TAB_SIZES[size] || TAB_SIZES.xl;
+  const activeRef = useRef(null);
+
+  useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [active]);
 
   return (
     <div
@@ -21,6 +28,7 @@ export default memo(function CategoryBar({ active, onSelect, size }) {
       {CATEGORIES.map((c) => (
         <button
           key={c.id}
+          ref={active === c.id ? activeRef : undefined}
           role="tab"
           aria-selected={active === c.id}
           onClick={() => onSelect(c.id)}

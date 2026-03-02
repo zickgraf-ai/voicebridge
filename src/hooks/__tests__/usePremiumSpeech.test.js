@@ -395,7 +395,7 @@ describe('usePremiumSpeech', () => {
 
   describe('Non-premium mode', () => {
     it('uses Web Speech directly when not premium', async () => {
-      // Default settings have voiceProvider: 'device'
+      seedPremiumSettings({ voiceProvider: 'device' });
       const { result } = renderHook(() => usePremiumSpeech(), { wrapper });
 
       await act(async () => {
