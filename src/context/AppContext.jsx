@@ -22,7 +22,7 @@ const DEFAULT_PROFILE = {
 const DEFAULT_SETTINGS = {
   autoSpeak: true,
   voiceURI: '',
-  voiceRate: 0.9,
+  voiceRate: 1.0,
   buttonSize: 'large',
   tabSize: 'xl',
   painReminder: 120,

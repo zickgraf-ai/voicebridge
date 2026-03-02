@@ -63,7 +63,7 @@ describe('useSpeech', () => {
 
     const utterance = globalThis.speechSynthesis.speak.mock.calls[0][0];
     expect(utterance.text).toBe('Test');
-    // Default voiceRate is 0.9
-    expect(utterance.rate).toBe(0.9);
+    // Default voiceRate is 1.0
+    expect(utterance.rate).toBe(1.0);
   });
 });
