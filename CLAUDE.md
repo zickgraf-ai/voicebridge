@@ -16,6 +16,24 @@ Multiple Claude sessions may be running against this repo concurrently. To avoid
 - Branch names **must** include the issue ID: `feat/issue-id-45-use-redis-cache`, `fix/issue-id-32-fix-settings-scroll-bar`, `docs/issue-id-11-update-workflow`.
 - Use conventional commit messages: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`.
 
+### Auto-PR and preview deploys
+- A GitHub Action (`.github/workflows/auto-create-pr.yml`) **automatically creates a PR** whenever a branch is pushed. No manual PR creation is needed.
+- **Vercel** is connected to the repo and deploys a **preview URL** for every PR. The preview link appears as a comment on the PR and in the GitHub Checks section.
+- **Workflow after pushing a branch:**
+  1. Push the branch → GitHub Action auto-creates (or updates) the PR.
+  2. Vercel detects the PR and builds a preview deploy.
+  3. **IMPORTANT — Always fetch and share the preview URL.** After pushing, use `curl` to query the GitHub API for the PR number and commit statuses to find the Vercel preview URL. Give the user the PR link AND the Vercel preview URL so they can test the changes. Example API calls:
+     - `curl -s https://api.github.com/repos/zickgraf-ai/taptospeak/pulls?head=zickgraf-ai:{branch}` → get PR number
+     - `curl -s https://api.github.com/repos/zickgraf-ai/taptospeak/statuses/{sha}` → get Vercel deploy URL
+     - The preview URL is in the Vercel bot comment on the PR or in the commit status `target_url`.
+  4. Test changes on the preview URL before merging to main.
+- The system may assign a required branch name (e.g., `claude/implement-issue-6-RRX3K`). Use whatever branch name the system assigns.
+
+### Claude Code on the web (claude.ai/code) — notes
+- The `gh` CLI is **not installed** and cannot be installed (no outbound apt access).
+- The git proxy only supports git operations (push/pull/fetch), not the GitHub REST API.
+- PR creation is handled automatically by the GitHub Action above — no need for `gh` or compare URLs.
+
 ## Deployment
 - **Production URL**: https://taptospeak.app
 - **Version**: Defined in `package.json` `"version"` field, displayed at the bottom of Settings screen as "TapToSpeak v{version}"
