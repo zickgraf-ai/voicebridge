@@ -1,6 +1,42 @@
 /* global __APP_VERSION__ */
+import { useState } from 'react';
+
+function openMailto(mailto, onFallback) {
+  const link = document.createElement('a');
+  link.href = mailto;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  // If no mail client handles it, the page stays the same.
+  // Show fallback after a short delay so the user always has the email.
+  setTimeout(() => {
+    onFallback();
+  }, 1500);
+}
 
 export default function AboutScreen({ onBack }) {
+  const [showEmailAlert, setShowEmailAlert] = useState(false);
+
+  const partnershipSubject = 'TapToSpeak – Partnership Inquiry';
+  const partnershipBody =
+    "Hi Jeff, I'm a [role] at [organization]. I'm interested in learning more about TapToSpeak for our patients.";
+  const partnershipMailto = `mailto:taptospeak@zickgraf.ai?subject=${encodeURIComponent(partnershipSubject)}&body=${encodeURIComponent(partnershipBody)}`;
+
+  const feedbackSubject = 'TapToSpeak – User Feedback';
+  const feedbackMailto = `mailto:taptospeak@zickgraf.ai?subject=${encodeURIComponent(feedbackSubject)}`;
+
+  const handlePartnershipClick = (e) => {
+    e.preventDefault();
+    openMailto(partnershipMailto, () => setShowEmailAlert(true));
+  };
+
+  const handleFeedbackClick = (e) => {
+    e.preventDefault();
+    openMailto(feedbackMailto, () => setShowEmailAlert(true));
+  };
+
   return (
     <div
       style={{
@@ -8,7 +44,7 @@ export default function AboutScreen({ onBack }) {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        gap: 12,
+        gap: 14,
         overflow: 'auto',
         boxSizing: 'border-box',
       }}
@@ -33,7 +69,7 @@ export default function AboutScreen({ onBack }) {
         {'\u2190'} Settings
       </button>
 
-      {/* App Identity */}
+      {/* 1. App Identity */}
       <div
         style={{
           display: 'flex',
@@ -43,8 +79,23 @@ export default function AboutScreen({ onBack }) {
           padding: '12px 0',
         }}
       >
-        <span style={{ fontSize: 48 }}>{'\u{1F4AC}'}</span>
-        <h2 style={{ color: '#F1F5F9', margin: 0, fontSize: 22, fontWeight: 700 }}>
+        <img
+          src="/icon-192.png"
+          alt="TapToSpeak"
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 16,
+          }}
+        />
+        <h2
+          style={{
+            color: '#F1F5F9',
+            margin: 0,
+            fontSize: 22,
+            fontWeight: 700,
+          }}
+        >
           TapToSpeak
         </h2>
         <span style={{ color: '#64748B', fontSize: 13 }}>
@@ -59,112 +110,168 @@ export default function AboutScreen({ onBack }) {
             fontStyle: 'italic',
           }}
         >
-          Giving patients a voice when they need it most
+          Giving patients a voice when they need it most.
         </p>
       </div>
 
-      {/* Our Story */}
+      {/* 2. Our Story */}
       <div
         style={{
           background: '#1E293B',
           borderRadius: 12,
-          padding: 14,
+          padding: 16,
           border: '1px solid #334155',
         }}
       >
-        <h3 style={{ color: '#F1F5F9', margin: '0 0 8px', fontSize: 16 }}>
+        <h3 style={{ color: '#F1F5F9', margin: '0 0 10px', fontSize: 16 }}>
           Our Story
         </h3>
-        <p style={{ color: '#CBD5E1', fontSize: 13, margin: '0 0 10px', lineHeight: 1.6, fontStyle: 'italic' }}>
-          {'\u201C'}Hi, I&apos;m Jeff Zickgraf, creator of TapToSpeak.
-        </p>
-        <p style={{ color: '#CBD5E1', fontSize: 13, margin: '0 0 10px', lineHeight: 1.6 }}>
-          TapToSpeak was invented out of necessity when a family member after
-          surgery found themselves unable to speak or answer nurses&apos; questions
-          due to a broken dominant hand and broken jaw. We tried a few
-          text-to-speech apps but they were clunky and difficult to quickly
-          speak. That night I built a prototype and installed it on their phone
-          the next morning and it worked for them!
-        </p>
-        <p style={{ color: '#CBD5E1', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-          They weren&apos;t able to speak but we could hear them. I hope the
-          application helps you too.{'\u201D'}
-        </p>
-      </div>
-
-      {/* Healthcare Professionals */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #0F2A3D, #1A3A4A)',
-          borderRadius: 12,
-          padding: 14,
-          border: '1px solid #1E4D5E',
-        }}
-      >
-        <h3 style={{ color: '#5EEAD4', margin: '0 0 6px', fontSize: 16 }}>
-          {'\u{1F3E5}'} Healthcare Professionals
-        </h3>
-        <p style={{ color: '#CBD5E1', fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
-          Interested in bringing TapToSpeak to your hospital, clinic, or
-          rehabilitation center? We&apos;d love to partner with you to help
-          more patients communicate.
-        </p>
-        <a
-          href="mailto:taptospeak@zickgraf.ai?subject=Partnership%20Inquiry%20%E2%80%93%20TapToSpeak"
+        <div
           style={{
-            display: 'block',
-            textAlign: 'center',
-            background: 'linear-gradient(135deg, #14B8A6, #0D9488)',
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: 600,
-            padding: 12,
-            borderRadius: 10,
-            textDecoration: 'none',
-            cursor: 'pointer',
+            borderLeft: '3px solid #3B82F6',
+            paddingLeft: 14,
           }}
         >
-          {'\u{1F4E7}'} Inquire About Partnerships
-        </a>
+          <p
+            style={{
+              color: '#CBD5E1',
+              fontSize: 13,
+              margin: '0 0 10px',
+              lineHeight: 1.7,
+              fontStyle: 'italic',
+            }}
+          >
+            {'\u201C'}Hi, I&apos;m Jeff Zickgraf, creator of TapToSpeak. This
+            app was born out of necessity. When a family member came out of
+            surgery unable to speak, with a broken jaw and a broken dominant
+            hand, we scrambled to find something that could give them a voice.
+          </p>
+          <p
+            style={{
+              color: '#CBD5E1',
+              fontSize: 13,
+              margin: '0 0 10px',
+              lineHeight: 1.7,
+              fontStyle: 'italic',
+            }}
+          >
+            The apps we tried were clunky and slow — not what you need when a
+            nurse is asking questions and you can&apos;t answer. So that night,
+            I built a prototype. I installed it on their phone the next morning,
+            and it worked.
+          </p>
+          <p
+            style={{
+              color: '#CBD5E1',
+              fontSize: 13,
+              margin: 0,
+              lineHeight: 1.7,
+              fontStyle: 'italic',
+            }}
+          >
+            They couldn&apos;t speak, but we could hear them. I hope TapToSpeak
+            helps your patients too.{'\u201D'}
+          </p>
+        </div>
       </div>
 
-      {/* Feedback */}
+      {/* 3. For Healthcare Professionals — Most visually prominent section */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #0C4A6E, #164E63)',
+          borderRadius: 14,
+          padding: 18,
+          border: '1px solid #0E7490',
+          boxShadow: '0 4px 20px rgba(14, 116, 144, 0.25)',
+        }}
+      >
+        <h3
+          style={{
+            color: '#67E8F9',
+            margin: '0 0 8px',
+            fontSize: 17,
+            fontWeight: 700,
+          }}
+        >
+          {'\u{1F3E5}'} For Healthcare Professionals
+        </h3>
+        <p
+          style={{
+            color: '#E0F2FE',
+            fontSize: 14,
+            margin: '0 0 14px',
+            lineHeight: 1.6,
+          }}
+        >
+          Are you a clinician, speech-language pathologist, or hospital
+          administrator? I&apos;d love to hear how TapToSpeak could help your
+          patients and explore partnership opportunities.
+        </p>
+        <button
+          onClick={handlePartnershipClick}
+          style={{
+            display: 'block',
+            width: '100%',
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #0891B2, #0E7490)',
+            color: '#fff',
+            fontSize: 15,
+            fontWeight: 700,
+            padding: 14,
+            borderRadius: 10,
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(8, 145, 178, 0.35)',
+          }}
+        >
+          {'\u{1F4E7}'} Contact for Partnerships
+        </button>
+      </div>
+
+      {/* 4. Share Your Experience */}
       <div
         style={{
           background: '#1E293B',
           borderRadius: 12,
-          padding: 14,
+          padding: 16,
           border: '1px solid #334155',
         }}
       >
         <h3 style={{ color: '#F1F5F9', margin: '0 0 6px', fontSize: 16 }}>
-          {'\u{1F4AC}'} Share Your Experience
+          Share Your Experience
         </h3>
-        <p style={{ color: '#CBD5E1', fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
-          Your feedback helps us improve TapToSpeak for everyone. Whether
-          it&apos;s a feature idea, a bug report, or a story about how the
-          app helped — we want to hear from you.
+        <p
+          style={{
+            color: '#CBD5E1',
+            fontSize: 13,
+            margin: '0 0 12px',
+            lineHeight: 1.6,
+          }}
+        >
+          Using TapToSpeak with a patient or loved one? I&apos;d love to hear
+          your story — your feedback helps shape what comes next.
         </p>
-        <a
-          href="mailto:taptospeak@zickgraf.ai?subject=Feedback%20%E2%80%93%20TapToSpeak"
+        <button
+          onClick={handleFeedbackClick}
           style={{
             display: 'block',
+            width: '100%',
             textAlign: 'center',
-            background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
-            color: '#fff',
+            background: 'transparent',
+            color: '#3B82F6',
             fontSize: 14,
             fontWeight: 600,
             padding: 12,
             borderRadius: 10,
-            textDecoration: 'none',
+            border: '2px solid #3B82F6',
             cursor: 'pointer',
           }}
         >
-          {'\u{1F4E8}'} Send Feedback
-        </a>
+          {'\u{1F4E8}'} Share Feedback
+        </button>
       </div>
 
-      {/* Links */}
+      {/* 5. Links */}
       <div
         style={{
           background: '#1E293B',
@@ -177,9 +284,15 @@ export default function AboutScreen({ onBack }) {
         }}
       >
         {[
-          { label: 'Privacy Policy', url: 'https://taptospeak.app/privacy' },
-          { label: 'Terms of Use', url: 'https://taptospeak.app/terms' },
-          { label: 'Website', url: 'https://taptospeak.app' },
+          {
+            label: 'Privacy Policy',
+            url: 'https://zickgraf.ai/taptospeak/privacy',
+          },
+          {
+            label: 'Terms of Use',
+            url: 'https://zickgraf.ai/taptospeak/terms',
+          },
+          { label: 'Website', url: 'https://zickgraf.ai/taptospeak' },
         ].map((link, i, arr) => (
           <a
             key={link.label}
@@ -194,7 +307,8 @@ export default function AboutScreen({ onBack }) {
               color: '#3B82F6',
               fontSize: 14,
               textDecoration: 'none',
-              borderBottom: i < arr.length - 1 ? '1px solid #334155' : 'none',
+              borderBottom:
+                i < arr.length - 1 ? '1px solid #334155' : 'none',
             }}
           >
             <span>{link.label}</span>
@@ -203,7 +317,7 @@ export default function AboutScreen({ onBack }) {
         ))}
       </div>
 
-      {/* Footer */}
+      {/* 6. Footer */}
       <div
         style={{
           textAlign: 'center',
@@ -212,8 +326,109 @@ export default function AboutScreen({ onBack }) {
           padding: '4px 0 16px',
         }}
       >
-        {'\u00A9'} {new Date().getFullYear()} TapToSpeak. All rights reserved.
+        {'\u00A9'} 2026 JZ Zickgraf. All rights reserved.
       </div>
+
+      {/* Mailto fallback alert */}
+      {showEmailAlert && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 20,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowEmailAlert(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#1E293B',
+              borderRadius: 16,
+              padding: 20,
+              width: '100%',
+              maxWidth: 340,
+              border: '1px solid #334155',
+              textAlign: 'center',
+            }}
+          >
+            <h3
+              style={{ color: '#F1F5F9', margin: '0 0 8px', fontSize: 18 }}
+            >
+              {'\u{1F4E7}'} Email Us
+            </h3>
+            <p
+              style={{
+                color: '#94A3B8',
+                fontSize: 13,
+                margin: '0 0 14px',
+                lineHeight: 1.5,
+              }}
+            >
+              If your email app didn&apos;t open, you can reach us at:
+            </p>
+            <div
+              style={{
+                background: '#0F172A',
+                borderRadius: 10,
+                padding: '10px 14px',
+                color: '#67E8F9',
+                fontSize: 15,
+                fontWeight: 600,
+                marginBottom: 14,
+                userSelect: 'all',
+                cursor: 'text',
+                border: '1px solid #334155',
+              }}
+            >
+              taptospeak@zickgraf.ai
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {
+                  navigator.clipboard
+                    ?.writeText('taptospeak@zickgraf.ai')
+                    .then(() => setShowEmailAlert(false));
+                }}
+                style={{
+                  flex: 1,
+                  background:
+                    'linear-gradient(135deg, #3B82F6, #2563EB)',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: 10,
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Copy Email
+              </button>
+              <button
+                onClick={() => setShowEmailAlert(false)}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: '1px solid #334155',
+                  borderRadius: 10,
+                  padding: 10,
+                  color: '#94A3B8',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

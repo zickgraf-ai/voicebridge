@@ -994,7 +994,8 @@ export default function SettingsScreen({ onNavigate }) {
           width: '100%',
         }}
       >
-        <span style={{ color: '#E2E8F0', fontSize: 14 }}>
+        <span style={{ color: '#E2E8F0', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>{'\u2139\uFE0F'}</span>
           About TapToSpeak
         </span>
         <span style={{ color: '#64748B', fontSize: 13 }}>{'\u203A'}</span>
