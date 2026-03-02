@@ -19,7 +19,7 @@ function speakTest(voices, settings) {
 
 const LOCATION_LABELS = ['Hospital', 'Home', 'Car', 'Therapy', 'Doctor', 'Pharmacy'];
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ onNavigate }) {
   const { state, setSettings, setProfile, setLocations } = useAppContext();
   const { settings, profile, locations } = state;
   const voices = useVoices();
@@ -202,6 +202,40 @@ export default function SettingsScreen() {
       <h2 style={{ color: '#F1F5F9', margin: 0, fontSize: 20 }}>
         {'\u2699\uFE0F'} Settings
       </h2>
+
+      {/* About TapToSpeak — prominent at top */}
+      <button
+        onClick={() => onNavigate && onNavigate('about')}
+        style={{
+          background: 'linear-gradient(135deg, #0C4A6E, #164E63)',
+          border: '1px solid #0E7490',
+          borderRadius: 14,
+          padding: '14px 16px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          boxShadow: '0 2px 12px rgba(14, 116, 144, 0.2)',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img
+            src="/icon-192.png"
+            alt=""
+            style={{ width: 36, height: 36, borderRadius: 8 }}
+          />
+          <span>
+            <span style={{ color: '#F1F5F9', fontSize: 15, fontWeight: 600, display: 'block' }}>
+              About TapToSpeak
+            </span>
+            <span style={{ color: '#67E8F9', fontSize: 12 }}>
+              Our story, contact & partnerships
+            </span>
+          </span>
+        </span>
+        <span style={{ color: '#67E8F9', fontSize: 16 }}>{'\u203A'}</span>
+      </button>
 
       {/* Auto-speak toggle */}
       <div
