@@ -8,6 +8,7 @@ describe('CategoryBar', () => {
     render(<CategoryBar active="smart" onSelect={() => {}} size="xl" />);
 
     expect(screen.getByText('Smart')).toBeInTheDocument();
+    expect(screen.getByText('Mine')).toBeInTheDocument();
     expect(screen.getByText('Build')).toBeInTheDocument();
     expect(screen.getByText('Quick')).toBeInTheDocument();
     expect(screen.getByText('Med')).toBeInTheDocument();
@@ -44,11 +45,11 @@ describe('CategoryBar', () => {
     const { container: c1 } = render(
       <CategoryBar active="smart" onSelect={() => {}} size="normal" />
     );
-    expect(c1.querySelectorAll('button').length).toBe(8);
+    expect(c1.querySelectorAll('button').length).toBe(9);
 
     const { container: c2 } = render(
       <CategoryBar active="smart" onSelect={() => {}} size="xl" />
     );
-    expect(c2.querySelectorAll('button').length).toBe(8);
+    expect(c2.querySelectorAll('button').length).toBe(9);
   });
 });

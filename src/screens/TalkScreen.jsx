@@ -17,6 +17,7 @@ import PhraseGrid from '../components/PhraseGrid';
 import PainScale from '../components/PainScale';
 import PhraseBuilder from '../components/PhraseBuilder';
 import CacheProgress from '../components/CacheProgress';
+import AddPhraseModal from '../components/AddPhraseModal';
 
 // Collect all phrases for the smart engine to score
 const ALL_SCORABLE_PHRASES = (() => {
@@ -50,8 +51,8 @@ const ALL_SCORABLE_PHRASES = (() => {
 })();
 
 export default function TalkScreen() {
-  const { state, addHistory, setFrequencyMap } = useAppContext();
-  const { profile, settings, history, frequencyMap, pinnedPhrases, locations } = state;
+  const { state, addHistory, setFrequencyMap, setCustomPhrases } = useAppContext();
+  const { profile, settings, history, frequencyMap, pinnedPhrases, locations, customPhrases, categoryOrder } = state;
   const voices = useVoices();
   const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, error: voiceError } = usePremiumSpeech();
   const { locationLabel } = useLocation(locations || []);
@@ -62,6 +63,8 @@ export default function TalkScreen() {
   const [expanded, setExpanded] = useState(false);
   const [cat, setCat] = useState('smart');
   const [showPain, setShowPain] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
 
   // Sync expanded state with editing
   useEffect(() => {
@@ -138,6 +141,10 @@ export default function TalkScreen() {
 
   const handleTap = useCallback(
     (p) => {
+      if (deleteMode && cat === 'mine') {
+        setCustomPhrases((prev) => prev.filter((cp) => cp.t !== p.t || cp.i !== p.i));
+        return;
+      }
       if (p.a === 'pain') {
         setShowPain(true);
         return;
@@ -152,7 +159,7 @@ export default function TalkScreen() {
       }
       setAndSpeak(p.t);
     },
-    [setAndSpeak, editing, text, profile]
+    [setAndSpeak, editing, text, profile, deleteMode, cat, setCustomPhrases]
   );
 
   // Smart suggestions: local-first with AI upgrade
@@ -178,6 +185,9 @@ export default function TalkScreen() {
     if (cat === 'smart') {
       return smartItems;
     }
+    if (cat === 'mine') {
+      return customPhrases || [];
+    }
     if (cat === 'people') {
       const familyButtons = profile.familyMembers.flatMap((f) => [
         { t: 'Call ' + f.name, i: f.photo || '\u{1F464}' },
@@ -194,7 +204,7 @@ export default function TalkScreen() {
       return [...base, ...medButtons];
     }
     return CATEGORY_PHRASES[cat] || [];
-  }, [cat, smartItems, profile.familyMembers, profile.medications]);
+  }, [cat, smartItems, profile.familyMembers, profile.medications, customPhrases]);
   const catColor =
     CATEGORIES.find((c) => c.id === cat)?.color || '#3B82F6';
 
@@ -274,10 +284,62 @@ export default function TalkScreen() {
           onSelect={(id) => {
             setCat(id);
             setShowPain(false);
+            if (id !== 'mine') setDeleteMode(false);
           }}
           size={settings.tabSize}
+          categoryOrder={categoryOrder}
         />
       </div>
+      {/* Mine category action bar */}
+      {cat === 'mine' && !expanded && (
+        <div style={{
+          display: 'flex',
+          gap: 6,
+          flexShrink: 0,
+        }}>
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              flex: 1,
+              height: 40,
+              background: 'linear-gradient(135deg, #F97316, #EA580C)',
+              border: 'none',
+              borderRadius: 10,
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            {'\u2795'} Add Phrase
+          </button>
+          {(customPhrases || []).length > 0 && (
+            <button
+              onClick={() => setDeleteMode((d) => !d)}
+              style={{
+                height: 40,
+                padding: '0 14px',
+                background: deleteMode ? '#EF444433' : '#1E293B',
+                border: deleteMode ? '2px solid #EF4444' : '1px solid #334155',
+                borderRadius: 10,
+                color: deleteMode ? '#FCA5A5' : '#94A3B8',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              {deleteMode ? '\u2715 Done' : '\u{1F5D1}\uFE0F Delete'}
+            </button>
+          )}
+        </div>
+      )}
       <div ref={gridRef} style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
         {showPain ? (
           <PainScale
@@ -289,6 +351,20 @@ export default function TalkScreen() {
             gridRows={gridRows}
             locationLabel={locationLabel}
           />
+        ) : cat === 'mine' && items.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            gap: 12,
+            color: '#64748B',
+          }}>
+            <span style={{ fontSize: 40 }}>{'\u2B50'}</span>
+            <span style={{ fontSize: 15 }}>No custom phrases yet</span>
+            <span style={{ fontSize: 13 }}>Tap "Add Phrase" to create your own buttons</span>
+          </div>
         ) : (
           <PhraseGrid
             items={items}
@@ -296,9 +372,18 @@ export default function TalkScreen() {
             color={catColor}
             pageSize={gridRows * 3}
             category={cat}
+            deleteMode={deleteMode && cat === 'mine'}
           />
         )}
       </div>
+      {showAddModal && (
+        <AddPhraseModal
+          onAdd={(phrase) => {
+            setCustomPhrases((prev) => [...prev, phrase]);
+          }}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
     </div>
   );
 }
