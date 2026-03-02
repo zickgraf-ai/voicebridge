@@ -9,6 +9,7 @@ import { getIdentityPhrase } from '../utils/identity';
 import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases';
 import { SMART_PHRASES } from '../data/smartSuggest';
 import { updateFrequencyMap } from '../utils/smartEngine';
+import { putAudio, hasCachedKeySync } from '../utils/audioCache';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { getTypingSuggestions } from '../utils/typingSuggestions';
 import SpeechBar from '../components/SpeechBar';
@@ -408,6 +409,21 @@ export default function TalkScreen() {
         <AddPhraseModal
           onAdd={(phrase) => {
             setCustomPhrases((prev) => [...prev, phrase]);
+            // Pre-cache premium voice audio so the phrase plays instantly
+            if (isPremium && phrase.t) {
+              const voice = settings.premiumVoice || 'nova';
+              const key = voice + ':' + phrase.t;
+              if (!hasCachedKeySync(key)) {
+                fetch('/api/speak', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: phrase.t, voice, speed: settings.voiceRate || 0.9 }),
+                })
+                  .then((resp) => resp.ok ? resp.blob() : null)
+                  .then((blob) => { if (blob) putAudio(key, blob); })
+                  .catch(() => {}); // Silent — fallback voice handles it
+              }
+            }
           }}
           onClose={() => setShowAddModal(false)}
         />

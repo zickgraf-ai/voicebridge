@@ -1,8 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithContext } from '../../test/renderWithContext';
 import TalkScreen from '../TalkScreen';
+
+// Hoisted mutable state for per-test premium toggle
+const mockPremium = vi.hoisted(() => ({ isPremium: false }));
 
 // Mock usePremiumSpeech to avoid fetch/IndexedDB in tests
 vi.mock('../../hooks/usePremiumSpeech', () => ({
@@ -10,10 +13,18 @@ vi.mock('../../hooks/usePremiumSpeech', () => ({
     speak: vi.fn(),
     cancel: vi.fn(),
     cacheProgress: { cached: 0, total: 0, loading: false },
+    isPremium: mockPremium.isPremium,
     error: null,
   }),
   PREMIUM_VOICES: [{ id: 'nova', name: 'Nova' }],
 }));
+
+// Mock audioCache for premium pre-cache tests
+const mockAudioFns = vi.hoisted(() => ({
+  putAudio: vi.fn(() => Promise.resolve()),
+  hasCachedKeySync: vi.fn(() => false),
+}));
+vi.mock('../../utils/audioCache', () => mockAudioFns);
 
 // Mock useLocation to avoid geolocation
 vi.mock('../../hooks/useLocation', () => ({
@@ -42,6 +53,7 @@ vi.mock('../../hooks/useSuggestions', () => ({
 describe('TalkScreen integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPremium.isPremium = false;
     globalThis.speechSynthesis.getVoices.mockReturnValue([
       { name: 'Samantha', lang: 'en-US', voiceURI: 'samantha', default: true },
     ]);
@@ -147,5 +159,83 @@ describe('TalkScreen integration', () => {
     // Should have appended
     const input = screen.getByPlaceholderText('Type your message...');
     expect(input).toHaveValue('I need Bathroom');
+  });
+});
+
+describe('Mine category premium pre-cache', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPremium.isPremium = true;
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['audio'], { type: 'audio/mpeg' })),
+      })
+    );
+    globalThis.speechSynthesis.getVoices.mockReturnValue([
+      { name: 'Samantha', lang: 'en-US', voiceURI: 'samantha', default: true },
+    ]);
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('pre-caches premium voice when a custom phrase is added', async () => {
+    const user = userEvent.setup();
+    renderWithContext(<TalkScreen />);
+
+    // Navigate to Mine category
+    await user.click(screen.getByText('Mine'));
+
+    // Open AddPhraseModal via the action bar button
+    await user.click(screen.getByRole('button', { name: /Add Phrase/ }));
+
+    // Type a phrase in the modal
+    await user.type(screen.getByPlaceholderText('Type your phrase...'), 'Good morning nurse');
+
+    // Click the modal's Add Phrase submit button (exact text, no emoji prefix)
+    await user.click(screen.getByRole('button', { name: 'Add Phrase' }));
+
+    // Verify fetch was called with the phrase for pre-caching
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/speak', expect.objectContaining({
+      method: 'POST',
+    }));
+    const fetchBody = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
+    expect(fetchBody.text).toBe('Good morning nurse');
+    expect(fetchBody.voice).toBe('nova');
+  });
+
+  it('skips pre-cache if phrase is already cached', async () => {
+    mockAudioFns.hasCachedKeySync.mockReturnValue(true);
+
+    const user = userEvent.setup();
+    renderWithContext(<TalkScreen />);
+
+    await user.click(screen.getByText('Mine'));
+    await user.click(screen.getByRole('button', { name: /Add Phrase/ }));
+    await user.type(screen.getByPlaceholderText('Type your phrase...'), 'Already cached');
+    await user.click(screen.getByRole('button', { name: 'Add Phrase' }));
+
+    // fetch should NOT have been called since the phrase is already cached
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('does not pre-cache when premium is disabled', async () => {
+    mockPremium.isPremium = false;
+
+    const user = userEvent.setup();
+    renderWithContext(<TalkScreen />);
+
+    await user.click(screen.getByText('Mine'));
+    await user.click(screen.getByRole('button', { name: /Add Phrase/ }));
+    await user.type(screen.getByPlaceholderText('Type your phrase...'), 'Hello');
+    await user.click(screen.getByRole('button', { name: 'Add Phrase' }));
+
+    // fetch should NOT have been called since premium is off
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });
