@@ -12,7 +12,7 @@ function speakTest(voices, settings) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance('Hello, I need some water please.');
-  u.rate = settings.voiceRate || 0.9;
+  u.rate = settings.voiceRate || 1.0;
   const v = voices.find((x) => x.voiceURI === settings.voiceURI) || voices[0];
   if (v) u.voice = v;
   window.speechSynthesis.speak(u);
@@ -210,6 +210,7 @@ export default function SettingsScreen({ onNavigate }) {
     // iOS Safari requires Audio to be created in the user gesture handler
     const audio = new Audio();
     audio.volume = 1;
+    audio.playbackRate = settings.voiceRate || 1.0;
     audio.onended = () => setVoiceTesting(false);
 
     try {
@@ -256,7 +257,7 @@ export default function SettingsScreen({ onNavigate }) {
       const resp = await fetch('/api/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: testPhrase, voice, speed: settings.voiceRate || 0.9 }),
+        body: JSON.stringify({ text: testPhrase, voice }),
       });
       if (resp.ok) {
         const blob = await resp.blob();
@@ -731,6 +732,18 @@ export default function SettingsScreen({ onNavigate }) {
           </select>
         </div>
       )}
+
+      {/* Speed */}
+      <SegmentControl
+        label={'\u{1F50A} Speed'}
+        value={settings.voiceRate}
+        onChange={(v) => update('voiceRate', v)}
+        options={[
+          { label: 'Slow', value: 0.8 },
+          { label: 'Normal', value: 1.0 },
+          { label: 'Fast', value: 1.2 },
+        ]}
+      />
 
       {/* Test Voice */}
       <button

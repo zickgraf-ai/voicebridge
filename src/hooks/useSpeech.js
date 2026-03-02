@@ -12,7 +12,7 @@ export function useSpeech() {
       if (!window.speechSynthesis || !text) return;
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = settings.voiceRate || 0.9;
+      utterance.rate = settings.voiceRate || 1.0;
       const voice = voices.find((v) => v.voiceURI === settings.voiceURI) || voices[0];
       if (voice) utterance.voice = voice;
       window.speechSynthesis.speak(utterance);

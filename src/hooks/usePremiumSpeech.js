@@ -346,7 +346,7 @@ export function usePremiumSpeech() {
    * PATH C — Cache miss: Web Speech fallback + background API fetch
    * PATH D — premiumOnly + miss: wait for API, fallback on error
    */
-  const speak = useCallback(async (text, { voiceRate = 0.9, webVoices = [], webVoiceURI = '' } = {}) => {
+  const speak = useCallback(async (text, { voiceRate = 1.0, webVoices = [], webVoiceURI = '' } = {}) => {
     // Stop any currently playing audio
     if (audioRef.current) {
       audioRef.current.pause();
@@ -387,7 +387,7 @@ export function usePremiumSpeech() {
       // iOS Safari: create Audio element synchronously in the user gesture handler
       audio = new Audio();
       audio.volume = 1;
-      audio.playbackRate = voiceRate || 0.9;
+      audio.playbackRate = voiceRate || 1.0;
       audioRef.current = audio;
     }
 
@@ -498,7 +498,7 @@ export function usePremiumSpeech() {
         const resp = await fetch('/api/speak', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: voiceName, speed: voiceRate || 0.9 }),
+          body: JSON.stringify({ text, voice: voiceName }),
         });
         if (audioRef.current !== null) return; // another tap took over
         if (resp.ok) {
@@ -523,7 +523,7 @@ export function usePremiumSpeech() {
         const resp = await fetch('/api/speak', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: voiceName, speed: voiceRate || 0.9 }),
+          body: JSON.stringify({ text, voice: voiceName }),
         });
         if (audioRef.current !== audio) return;
         if (resp.ok) {
@@ -540,7 +540,6 @@ export function usePremiumSpeech() {
             URL.revokeObjectURL(url);
             if (audioRef.current === audio) audioRef.current = null;
           };
-          audio.playbackRate = voiceRate || 0.9;
           audio.play().catch(() => URL.revokeObjectURL(url));
         } else {
           const msg = resp.status === 429
@@ -572,7 +571,7 @@ export function usePremiumSpeech() {
       const url = URL.createObjectURL(blob);
       const audio = new Audio();
       audio.volume = 1;
-      audio.playbackRate = voiceRate || 0.9;
+      audio.playbackRate = voiceRate || 1.0;
       audio.src = url;
       audioRef.current = audio;
       audio.onended = () => {
@@ -625,7 +624,7 @@ function speakWebSpeech(text, rate, voices, voiceURI) {
   if (!synth) return;
   logSpeech('web-speak', text);
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = rate || 0.9;
+  utterance.rate = rate || 1.0;
   const voice = voices.find((v) => v.voiceURI === voiceURI) || voices[0];
   if (voice) utterance.voice = voice;
   synth.speak(utterance);
