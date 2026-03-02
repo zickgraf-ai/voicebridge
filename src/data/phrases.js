@@ -7,6 +7,7 @@ export const CATEGORIES = [
   { id: 'comfort', label: 'Comfort', icon: '\u{1F6CB}\uFE0F', color: '#3B82F6' },
   { id: 'people', label: 'People', icon: '\u{1F465}', color: '#EC4899' },
   { id: 'emotions', label: 'Feel', icon: '\u{1F4AD}', color: '#A855F7' },
+  { id: 'prose', label: 'Prose', icon: '\u{1F4DD}', color: '#14B8A6' },
 ];
 
 export const CATEGORY_PHRASES = {
