@@ -20,7 +20,7 @@ export function splitParagraphs(text) {
  * Renders a large textarea for composing multi-paragraph messages
  * and speaks them with natural pauses between paragraphs.
  */
-export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: externalSpeaking }) {
+export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: externalSpeaking, isPremium }) {
   const [text, setText] = useState('');
   const [paragraphIndex, setParagraphIndex] = useState(-1);
   const [speaking, setSpeaking] = useState(false);
@@ -127,6 +127,20 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
           }}
         />
       </div>
+
+      {/* Premium voice note */}
+      {isPremium && !speaking && (
+        <div
+          style={{
+            fontSize: 12,
+            color: '#94A3B8',
+            textAlign: 'center',
+            flexShrink: 0,
+          }}
+        >
+          Prose uses device voice to keep costs down
+        </div>
+      )}
 
       {/* Status + Controls */}
       <div

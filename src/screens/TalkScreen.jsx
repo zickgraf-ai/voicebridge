@@ -55,7 +55,7 @@ export default function TalkScreen() {
   const { state, addHistory, setFrequencyMap, setCustomPhrases } = useAppContext();
   const { profile, settings, history, frequencyMap, pinnedPhrases, locations, customPhrases, categoryOrder } = state;
   const voices = useVoices();
-  const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, error: voiceError } = usePremiumSpeech();
+  const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, isPremium, error: voiceError } = usePremiumSpeech();
   const { locationLabel } = useLocation(locations || []);
 
   const [text, setText] = useState('');
@@ -140,27 +140,26 @@ export default function TalkScreen() {
     [settings, voices, cat, addHistory, setFrequencyMap, premiumSpeak]
   );
 
-  // ── Long Prose: paragraph-by-paragraph speaking ──
+  // ── Long Prose: always use device voice (free, no API cost) ──
   const handleSpeakParagraph = useCallback(
     (paragraphText, onDone) => {
-      premiumSpeak(paragraphText, {
-        voiceRate: settings.voiceRate,
-        webVoices: voices,
-        webVoiceURI: settings.voiceURI,
-      });
+      if (!window.speechSynthesis || !paragraphText) { onDone(); return; }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(paragraphText);
+      utterance.rate = settings.voiceRate || 0.9;
+      const voice = voices.find((v) => v.voiceURI === settings.voiceURI) || voices[0];
+      if (voice) utterance.voice = voice;
+      utterance.onend = () => onDone();
+      utterance.onerror = () => onDone();
+      window.speechSynthesis.speak(utterance);
       addHistory({ phrase: paragraphText, category: 'prose', source: 'typed' });
-      // Estimate speech duration from word count + speech rate
-      const words = paragraphText.split(/\s+/).length;
-      const rate = settings.voiceRate || 0.9;
-      const durationMs = (words / (150 * rate)) * 60000;
-      setTimeout(onDone, Math.max(durationMs + 500, 1500));
     },
-    [premiumSpeak, settings, voices, addHistory]
+    [settings.voiceRate, settings.voiceURI, voices, addHistory]
   );
 
   const handleStopProse = useCallback(() => {
-    premiumCancel();
-  }, [premiumCancel]);
+    window.speechSynthesis?.cancel();
+  }, []);
 
   const handleTap = useCallback(
     (p) => {
@@ -392,6 +391,7 @@ export default function TalkScreen() {
           <LongProse
             onSpeakParagraph={handleSpeakParagraph}
             onStop={handleStopProse}
+            isPremium={isPremium}
           />
         ) : (
           <PhraseGrid

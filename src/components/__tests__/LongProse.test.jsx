@@ -198,6 +198,18 @@ describe('LongProse', () => {
     expect(screen.getByLabelText('Speak all paragraphs')).not.toBeDisabled();
   });
 
+  it('shows device voice note when isPremium is true', () => {
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} isPremium={true} />);
+
+    expect(screen.getByText('Prose uses device voice to keep costs down')).toBeInTheDocument();
+  });
+
+  it('hides device voice note when isPremium is false', () => {
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} isPremium={false} />);
+
+    expect(screen.queryByText('Prose uses device voice to keep costs down')).not.toBeInTheDocument();
+  });
+
   it('speaks multiple paragraphs sequentially', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
