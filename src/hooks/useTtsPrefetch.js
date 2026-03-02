@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { putAudio, hasCachedKeySync } from '../utils/audioCache';
 import AUDIO_MANIFEST from '../data/audioManifest.json';
 
-const DEBOUNCE_MS = 600;
+const DEBOUNCE_MS = 400;
 const MIN_WORDS = 2;
 const MIN_CHARS = 8;
 const FETCH_TIMEOUT_MS = 5000;
@@ -11,7 +11,7 @@ const FETCH_TIMEOUT_MS = 5000;
 /**
  * Prefetch TTS audio as the user types.
  *
- * After a 600ms typing pause, fetches TTS
+ * After a 400ms typing pause, fetches TTS
  * for the full phrase and stores it in IndexedDB. When the user taps Speak,
  * the existing PATH B (hasCachedKeySync) finds the prefetched audio instantly.
  *

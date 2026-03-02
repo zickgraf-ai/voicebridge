@@ -21,6 +21,16 @@ export default function App() {
     if (data.settings) setSettings(data.settings);
   }
 
+  // Warm the TTS API connection on app load.
+  // Sends a lightweight OPTIONS preflight to establish the TLS connection
+  // and wake the serverless function, eliminating cold-start latency on
+  // the first real speak request.
+  useEffect(() => {
+    if (state.settings.voiceProvider === 'premium') {
+      fetch('/api/speak', { method: 'OPTIONS' }).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Restore from backup link (?restore=...)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
