@@ -22,10 +22,10 @@ export default function AboutScreen({ onBack }) {
   const partnershipSubject = 'TapToSpeak – Partnership Inquiry';
   const partnershipBody =
     "Hi Jeff, I'm a [role] at [organization]. I'm interested in learning more about TapToSpeak for our patients.";
-  const partnershipMailto = `mailto:taptospeak@zickgraf.ai?subject=${encodeURIComponent(partnershipSubject)}&body=${encodeURIComponent(partnershipBody)}`;
+  const partnershipMailto = `mailto:jeff@taptospeak.app?subject=${encodeURIComponent(partnershipSubject)}&body=${encodeURIComponent(partnershipBody)}`;
 
   const feedbackSubject = 'TapToSpeak – User Feedback';
-  const feedbackMailto = `mailto:taptospeak@zickgraf.ai?subject=${encodeURIComponent(feedbackSubject)}`;
+  const feedbackMailto = `mailto:jeff@taptospeak.app?subject=${encodeURIComponent(feedbackSubject)}`;
 
   const handlePartnershipClick = (e) => {
     e.preventDefault();
@@ -104,7 +104,7 @@ export default function AboutScreen({ onBack }) {
         <p
           style={{
             color: '#94A3B8',
-            fontSize: 14,
+            fontSize: 15,
             margin: '4px 0 0',
             textAlign: 'center',
             fontStyle: 'italic',
@@ -135,21 +135,21 @@ export default function AboutScreen({ onBack }) {
           <p
             style={{
               color: '#CBD5E1',
-              fontSize: 13,
+              fontSize: 15,
               margin: '0 0 10px',
               lineHeight: 1.7,
               fontStyle: 'italic',
             }}
           >
             {'\u201C'}Hi, I&apos;m Jeff Zickgraf, creator of TapToSpeak. This
-            app was born out of necessity. When a family member came out of
-            surgery unable to speak, with a broken jaw and a broken dominant
-            hand, we scrambled to find something that could give them a voice.
+            app was born out of necessity. When my wife came out of surgery
+            unable to speak, with a broken jaw and a broken dominant hand, I
+            scrambled to find something that could give her a voice.
           </p>
           <p
             style={{
               color: '#CBD5E1',
-              fontSize: 13,
+              fontSize: 15,
               margin: '0 0 10px',
               lineHeight: 1.7,
               fontStyle: 'italic',
@@ -157,19 +157,19 @@ export default function AboutScreen({ onBack }) {
           >
             The apps we tried were clunky and slow — not what you need when a
             nurse is asking questions and you can&apos;t answer. So that night,
-            I built a prototype. I installed it on their phone the next morning,
+            I built a prototype. I installed it on her phone the next morning,
             and it worked.
           </p>
           <p
             style={{
               color: '#CBD5E1',
-              fontSize: 13,
+              fontSize: 15,
               margin: 0,
               lineHeight: 1.7,
               fontStyle: 'italic',
             }}
           >
-            They couldn&apos;t speak, but we could hear them. I hope TapToSpeak
+            She couldn&apos;t speak, but I could hear her. I hope TapToSpeak
             helps your patients too.{'\u201D'}
           </p>
         </div>
@@ -198,7 +198,7 @@ export default function AboutScreen({ onBack }) {
         <p
           style={{
             color: '#E0F2FE',
-            fontSize: 14,
+            fontSize: 15,
             margin: '0 0 14px',
             lineHeight: 1.6,
           }}
@@ -243,7 +243,7 @@ export default function AboutScreen({ onBack }) {
         <p
           style={{
             color: '#CBD5E1',
-            fontSize: 13,
+            fontSize: 15,
             margin: '0 0 12px',
             lineHeight: 1.6,
           }}
@@ -365,7 +365,7 @@ export default function AboutScreen({ onBack }) {
             <p
               style={{
                 color: '#94A3B8',
-                fontSize: 13,
+                fontSize: 14,
                 margin: '0 0 14px',
                 lineHeight: 1.5,
               }}
@@ -386,13 +386,13 @@ export default function AboutScreen({ onBack }) {
                 border: '1px solid #334155',
               }}
             >
-              taptospeak@zickgraf.ai
+              jeff@taptospeak.app
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={() => {
                   navigator.clipboard
-                    ?.writeText('taptospeak@zickgraf.ai')
+                    ?.writeText('jeff@taptospeak.app')
                     .then(() => setShowEmailAlert(false));
                 }}
                 style={{
