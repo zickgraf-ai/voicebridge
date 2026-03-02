@@ -1,0 +1,102 @@
+name: Auto Create PR
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - master
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Determine base branch
+            let baseBranch = 'main';
+            try {
+              await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
+            } catch (e) {
+              baseBranch = 'master';
+            }
+
+            // Check for existing PR to avoid duplicates
+            const { data: existingPRs } = await github.rest.pulls.list({
+              owner, repo,
+              head: `${owner}:${branch}`,
+              base: baseBranch,
+              state: 'open'
+            });
+
+            // Format branch name into readable title
+            function formatTitle(branchName) {
+              const prefixes = ['feature/', 'bugfix/', 'fix/', 'hotfix/',
+                                'chore/', 'docs/', 'refactor/', 'feat/',
+                                'claude/'];
+              let prefix = '', name = branchName;
+              for (const p of prefixes) {
+                if (branchName.startsWith(p)) {
+                  prefix = p.replace('/', '');
+                  prefix = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+                  name = branchName.slice(p.length);
+                  break;
+                }
+              }
+              const formatted = name
+                .replace(/[-_]/g, ' ')
+                .replace(/\b\w/g, c => c.toUpperCase())
+                .trim();
+              return prefix ? `${prefix}: ${formatted}` : formatted;
+            }
+
+            // Gather commit messages for PR body
+            const { data: comparison } = await github.rest.repos.compareCommits({
+              owner, repo, base: baseBranch, head: branch
+            });
+            const commitMessages = comparison.commits
+              .slice(-10)
+              .map(c => `- ${c.commit.message.split('\n')[0]}`)
+              .join('\n');
+
+            const title = formatTitle(branch);
+            const body = [
+              `## Summary`,
+              ``,
+              `**Branch:** \`${branch}\` → \`${baseBranch}\``,
+              `**Author:** @${context.actor}`,
+              ``,
+              `### Commits`,
+              commitMessages || '_No new commits_',
+              ``,
+              `---`,
+              `_PR auto-created by GitHub Actions on push._`
+            ].join('\n');
+
+            if (existingPRs.length > 0) {
+              const pr = existingPRs[0];
+              await github.rest.pulls.update({
+                owner, repo,
+                pull_number: pr.number,
+                body: body
+              });
+              console.log(`Updated PR #${pr.number} with latest commits`);
+            } else {
+              const { data: newPR } = await github.rest.pulls.create({
+                owner, repo,
+                title, body,
+                head: branch,
+                base: baseBranch,
+                draft: false
+              });
+              console.log(`Created PR #${newPR.number}: ${newPR.html_url}`);
+            }
