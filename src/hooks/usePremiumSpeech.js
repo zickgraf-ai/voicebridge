@@ -58,7 +58,7 @@ function hasManifestEntries(voice) {
  */
 export function usePremiumSpeech() {
   const { state } = useAppContext();
-  const { settings, profile } = state;
+  const { settings, profile, customPhrases } = state;
   const isPremium = settings.voiceProvider === 'premium';
   const voiceName = settings.premiumVoice || 'nova';
   const premiumOnly = settings.premiumOnly || false;
@@ -99,6 +99,11 @@ export function usePremiumSpeech() {
       }
     }
 
+    // Custom "Mine" phrases
+    for (const cp of customPhrases || []) {
+      if (cp.t) phrases.push(cp.t);
+    }
+
     if (phrases.length === 0) return;
 
     // Build a fingerprint to avoid re-fetching unchanged phrases
@@ -132,7 +137,7 @@ export function usePremiumSpeech() {
     })();
 
     return () => { cancelled = true; };
-  }, [isPremium, voiceName, profile]);
+  }, [isPremium, voiceName, profile, customPhrases]);
 
   // Check cache status on mount and when voice changes
   useEffect(() => {
