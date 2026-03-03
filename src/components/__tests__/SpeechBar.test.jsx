@@ -26,14 +26,14 @@ describe('SpeechBar', () => {
   describe('Empty mode', () => {
     it('shows placeholder text', () => {
       renderSpeechBar();
-      expect(screen.getByText('Tap here to type...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Tap here to type...')).toBeInTheDocument();
     });
 
     it('enters edit mode when placeholder is clicked', async () => {
       const user = userEvent.setup();
       const props = renderSpeechBar();
 
-      await user.click(screen.getByText('Tap here to type...'));
+      await user.click(screen.getByPlaceholderText('Tap here to type...'));
       expect(props.setEditing).toHaveBeenCalledWith(true);
     });
 
@@ -46,7 +46,7 @@ describe('SpeechBar', () => {
   describe('Filled mode (auto-speak on)', () => {
     it('shows the spoken text', () => {
       renderSpeechBar({ text: 'I need water' });
-      expect(screen.getByText('I need water')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('I need water')).toBeInTheDocument();
     });
 
     it('shows replay, edit, and clear buttons', () => {
@@ -93,7 +93,7 @@ describe('SpeechBar', () => {
   describe('Edit mode', () => {
     it('renders an input field', () => {
       renderSpeechBar({ text: 'Hello', editing: true });
-      const input = screen.getByPlaceholderText('Type your message...');
+      const input = screen.getByPlaceholderText('Tap here to type...');
       expect(input).toBeInTheDocument();
       expect(input).toHaveValue('Hello');
     });
@@ -110,7 +110,7 @@ describe('SpeechBar', () => {
       const user = userEvent.setup();
       const props = renderSpeechBar({ text: '', editing: true });
 
-      await user.type(screen.getByPlaceholderText('Type your message...'), 'Hi');
+      await user.type(screen.getByPlaceholderText('Tap here to type...'), 'Hi');
       expect(props.setText).toHaveBeenCalled();
     });
 

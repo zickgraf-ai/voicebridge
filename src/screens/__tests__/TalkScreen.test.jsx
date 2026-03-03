@@ -51,7 +51,7 @@ describe('TalkScreen integration', () => {
     renderWithContext(<TalkScreen />);
 
     // Speech bar placeholder
-    expect(screen.getByText('Tap here to type...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Tap here to type...')).toBeInTheDocument();
     // Category tabs
     expect(screen.getByText('Smart')).toBeInTheDocument();
     expect(screen.getByText('Quick')).toBeInTheDocument();
@@ -66,9 +66,9 @@ describe('TalkScreen integration', () => {
 
     await user.click(screen.getByText('Yes'));
 
-    // "Yes" now appears in both the speech bar and the phrase grid
-    const matches = screen.getAllByText('Yes');
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    // "Yes" appears in the speech bar input value and the phrase grid text
+    expect(screen.getByDisplayValue('Yes')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument();
   });
 
   it('switches categories when a category tab is clicked', async () => {
@@ -106,7 +106,7 @@ describe('TalkScreen integration', () => {
     await user.click(screen.getByText("I'm in pain"));
     await user.click(screen.getByText('5'));
 
-    expect(screen.getByText('My pain is 5 out of 10')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('My pain is 5 out of 10')).toBeInTheDocument();
   });
 
   it('clears speech bar when clear button is clicked', async () => {
@@ -119,14 +119,14 @@ describe('TalkScreen integration', () => {
     await user.click(screen.getByText('\u2715'));
 
     // Speech bar should be empty again
-    expect(screen.getByText('Tap here to type...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Tap here to type...')).toBeInTheDocument();
   });
 
   it('enters edit mode when speech bar is clicked', async () => {
     const user = userEvent.setup();
     renderWithContext(<TalkScreen />);
 
-    await user.click(screen.getByText('Tap here to type...'));
+    await user.click(screen.getByPlaceholderText('Tap here to type...'));
 
     expect(screen.getByPlaceholderText('Type your message...')).toBeInTheDocument();
   });
@@ -136,7 +136,7 @@ describe('TalkScreen integration', () => {
     renderWithContext(<TalkScreen />);
 
     // Enter edit mode by clicking speech bar
-    await user.click(screen.getByText('Tap here to type...'));
+    await user.click(screen.getByPlaceholderText('Tap here to type...'));
     // Type something
     await user.type(screen.getByPlaceholderText('Type your message...'), 'I need');
 
