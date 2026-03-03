@@ -325,7 +325,7 @@ describe('Saved prose', () => {
     expect(screen.getByText('Quick Title')).toBeInTheDocument();
   });
 
-  it('cancels save mode when cancel is clicked', async () => {
+  it('cancels save mode and clears text when cancel is clicked', async () => {
     const user = userEvent.setup();
     render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
 
@@ -333,9 +333,9 @@ describe('Saved prose', () => {
     await user.click(screen.getByLabelText('Save prose'));
     await user.click(screen.getByLabelText('Cancel save'));
 
-    // Should exit save mode, text still present
+    // Should exit save mode, text cleared
     expect(screen.queryByLabelText('Prose title')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Long prose input')).toHaveValue('Hello world');
+    expect(screen.getByLabelText('Long prose input')).toHaveValue('');
   });
 
   it('cancels save mode with Escape key', async () => {
@@ -425,5 +425,143 @@ describe('Saved prose', () => {
     render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
 
     expect(screen.getByText('2/5 saved')).toBeInTheDocument();
+  });
+
+  it('shows edit button on each saved entry', () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Entry', text: 'Some text' },
+    ]);
+
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    expect(screen.getByLabelText('Edit My Entry')).toBeInTheDocument();
+  });
+
+  it('loads saved text into textarea when edit is tapped', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Entry', text: 'Original prose text' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.click(screen.getByLabelText('Edit My Entry'));
+
+    expect(screen.getByLabelText('Long prose input')).toHaveValue('Original prose text');
+  });
+
+  it('shows Update button instead of Save when editing', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Entry', text: 'Original text' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.click(screen.getByLabelText('Edit My Entry'));
+
+    expect(screen.getByLabelText('Update prose')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Save prose')).not.toBeInTheDocument();
+  });
+
+  it('pre-fills title when updating a saved entry', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Entry', text: 'Original text' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.click(screen.getByLabelText('Edit My Entry'));
+    await user.click(screen.getByLabelText('Update prose'));
+
+    expect(screen.getByLabelText('Prose title')).toHaveValue('My Entry');
+  });
+
+  it('updates saved entry text and title on confirm', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'Old Title', text: 'Old text' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    // Start editing
+    await user.click(screen.getByLabelText('Edit Old Title'));
+    // Modify text
+    const textarea = screen.getByLabelText('Long prose input');
+    await user.clear(textarea);
+    await user.type(textarea, 'Updated text');
+    // Click Update
+    await user.click(screen.getByLabelText('Update prose'));
+    // Modify pre-filled title
+    const titleInput = screen.getByLabelText('Prose title');
+    await user.clear(titleInput);
+    await user.type(titleInput, 'New Title');
+    await user.click(screen.getByLabelText('Confirm save'));
+
+    // Should show updated title
+    expect(screen.getByText('New Title')).toBeInTheDocument();
+    expect(screen.queryByText('Old Title')).not.toBeInTheDocument();
+    // Textarea should be cleared
+    expect(screen.getByLabelText('Long prose input')).toHaveValue('');
+    // Should persist updated entry
+    expect(saveState).toHaveBeenCalledWith('savedProse', [
+      expect.objectContaining({ id: '1', title: 'New Title', text: 'Updated text' }),
+    ]);
+  });
+
+  it('toggles edit off when tapping edit on the same entry', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Entry', text: 'Some text' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    // Tap edit — loads text
+    await user.click(screen.getByLabelText('Edit My Entry'));
+    expect(screen.getByLabelText('Long prose input')).toHaveValue('Some text');
+
+    // Tap edit again — clears
+    await user.click(screen.getByLabelText('Edit My Entry'));
+    expect(screen.getByLabelText('Long prose input')).toHaveValue('');
+    // Should show Save (not Update) since no longer editing
+    expect(screen.queryByLabelText('Update prose')).not.toBeInTheDocument();
+  });
+
+  it('allows editing even when at the 5-entry limit', async () => {
+    loadState.mockReturnValue(
+      Array.from({ length: MAX_SAVED_PROSE }, (_, i) => ({
+        id: String(i),
+        title: `Entry ${i}`,
+        text: `Text ${i}`,
+      }))
+    );
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    // Tap edit on the first entry
+    await user.click(screen.getByLabelText('Edit Entry 0'));
+
+    // Update button should be available even though we're at the limit
+    expect(screen.getByLabelText('Update prose')).toBeInTheDocument();
+  });
+
+  it('clears editing state when Clear button is clicked', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Entry', text: 'Some text' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.click(screen.getByLabelText('Edit My Entry'));
+    expect(screen.getByLabelText('Update prose')).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('Clear text'));
+    // Should no longer be in editing mode
+    expect(screen.queryByLabelText('Update prose')).not.toBeInTheDocument();
   });
 });

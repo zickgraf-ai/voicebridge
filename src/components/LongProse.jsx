@@ -34,6 +34,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
   const [isSaveMode, setIsSaveMode] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
   const [playingId, setPlayingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
   // Persist saved prose whenever it changes
   useEffect(() => {
@@ -46,7 +47,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
   const charsRemaining = MAX_PROSE_CHARS - text.length;
   const overLimit = tooManyParagraphs || charsRemaining < 0;
   const canSpeak = hasParagraphs && !overLimit;
-  const canSave = hasParagraphs && !overLimit && !speaking && savedProse.length < MAX_SAVED_PROSE;
+  const canSave = hasParagraphs && !overLimit && !speaking && (editingId || savedProse.length < MAX_SAVED_PROSE);
 
   // Sync with external speaking state (e.g. when TTS finishes)
   useEffect(() => {
@@ -116,19 +117,34 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
     startSpeaking(paras);
   }, [speaking, handleStop, startSpeaking]);
 
+  const editSaved = useCallback((entry) => {
+    if (editingId === entry.id) {
+      // Toggle off if already editing this entry
+      setEditingId(null);
+      setText('');
+      return;
+    }
+    setEditingId(entry.id);
+    setText(entry.text);
+  }, [editingId]);
+
   const handleSave = useCallback(() => {
     const trimmedTitle = saveTitle.trim();
-    if (!trimmedTitle || !canSave) return;
-    const entry = {
-      id: Date.now().toString(),
-      title: trimmedTitle,
-      text,
-    };
-    setSavedProse((prev) => [...prev, entry]);
+    if (!trimmedTitle || !hasParagraphs || overLimit) return;
+    if (editingId) {
+      // Update existing entry
+      setSavedProse((prev) => prev.map((e) =>
+        e.id === editingId ? { ...e, title: trimmedTitle, text } : e
+      ));
+      setEditingId(null);
+    } else {
+      if (savedProse.length >= MAX_SAVED_PROSE) return;
+      setSavedProse((prev) => [...prev, { id: Date.now().toString(), title: trimmedTitle, text }]);
+    }
     setIsSaveMode(false);
     setSaveTitle('');
     setText('');
-  }, [saveTitle, canSave, text]);
+  }, [saveTitle, hasParagraphs, overLimit, text, editingId, savedProse.length]);
 
   const deleteSaved = useCallback((id) => {
     if (playingId === id) handleStop();
@@ -213,6 +229,27 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
                 {'\u25B6'}
               </button>
               <button
+                onClick={() => editSaved(entry)}
+                disabled={speaking}
+                aria-label={'Edit ' + entry.title}
+                style={{
+                  width: 40,
+                  height: 40,
+                  background: editingId === entry.id ? '#F9731622' : 'transparent',
+                  border: editingId === entry.id ? '1px solid #F97316' : '1px solid #47556944',
+                  borderRadius: 10,
+                  color: editingId === entry.id ? '#F97316' : '#94A3B8',
+                  fontSize: 16,
+                  cursor: speaking ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {'\u270F\uFE0F'}
+              </button>
+              <button
                 onClick={() => deleteSaved(entry.id)}
                 disabled={speaking}
                 aria-label={'Delete ' + entry.title}
@@ -252,7 +289,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
             width: '100%',
             height: '100%',
             background: '#1E293B',
-            border: speaking ? '2px solid #14B8A6' : '2px solid #334155',
+            border: speaking ? '2px solid #14B8A6' : editingId ? '2px solid #F97316' : '2px solid #334155',
             borderRadius: 14,
             color: '#E2E8F0',
             fontSize: 18,
@@ -383,7 +420,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
               {'\u2713'}
             </button>
             <button
-              onClick={() => { setIsSaveMode(false); setSaveTitle(''); }}
+              onClick={() => { setIsSaveMode(false); setSaveTitle(''); setEditingId(null); setText(''); }}
               aria-label="Cancel save"
               style={{
                 height: 48,
@@ -425,18 +462,24 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
                 </span>
               )}
             </div>
-            {/* Save button */}
+            {/* Save / Update button */}
             {canSave && (
               <button
-                onClick={() => setIsSaveMode(true)}
-                aria-label="Save prose"
+                onClick={() => {
+                  if (editingId) {
+                    const entry = savedProse.find((e) => e.id === editingId);
+                    setSaveTitle(entry?.title || '');
+                  }
+                  setIsSaveMode(true);
+                }}
+                aria-label={editingId ? 'Update prose' : 'Save prose'}
                 style={{
                   height: 48,
                   minWidth: 80,
-                  background: '#334155',
-                  border: '1px solid #475569',
+                  background: editingId ? '#F9731622' : '#334155',
+                  border: editingId ? '1px solid #F97316' : '1px solid #475569',
                   borderRadius: 12,
-                  color: '#E2E8F0',
+                  color: editingId ? '#F97316' : '#E2E8F0',
                   fontSize: 15,
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -446,7 +489,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
                   gap: 4,
                 }}
               >
-                {'\uD83D\uDCBE'} Save
+                {editingId ? '\u270F\uFE0F Update' : '\uD83D\uDCBE Save'}
               </button>
             )}
             {/* Speak button */}
@@ -474,7 +517,7 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
             </button>
             {/* Clear button */}
             <button
-              onClick={() => setText('')}
+              onClick={() => { setText(''); setEditingId(null); }}
               disabled={!text}
               aria-label="Clear text"
               style={{
