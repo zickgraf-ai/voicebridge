@@ -15,8 +15,10 @@
     "generate-audio": "node scripts/generate-audio.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

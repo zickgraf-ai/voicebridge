@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAppContext } from './context/AppContext';
+import { setEnabled as setAnalyticsEnabled, startSession, stopSession, flushAnalytics } from './utils/analytics';
 import TalkScreen from './screens/TalkScreen';
 import BottomNav from './components/BottomNav';
 
@@ -30,6 +31,16 @@ export default function App() {
       fetch('/api/speak', { method: 'OPTIONS' }).catch(() => {});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Analytics: sync enabled state and manage session lifecycle
+  useEffect(() => {
+    setAnalyticsEnabled(state.settings.analyticsEnabled);
+    if (state.settings.analyticsEnabled) {
+      startSession();
+      flushAnalytics(state.settings);
+    }
+    return () => stopSession();
+  }, [state.settings.analyticsEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore from backup link (?restore=...)
   useEffect(() => {

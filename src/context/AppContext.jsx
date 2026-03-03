@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS = {
   voiceProvider: 'premium',
   premiumVoice: 'nova',
   premiumOnly: false,
+  analyticsEnabled: false,
 };
 
 function reducer(state, action) {
