@@ -91,6 +91,7 @@ export default async function handler(request) {
         speed: Math.max(0.25, Math.min(4.0, speed)),
         response_format: 'mp3',
       }),
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!response.ok) {
@@ -109,7 +110,11 @@ export default async function handler(request) {
       },
     });
   } catch (err) {
-    console.error('TTS request failed:', err);
-    return Response.json({ error: 'Internal server error' }, { status: 500, headers: rateHeaders });
+    const isTimeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
+    console.error('TTS request failed:', isTimeout ? 'OpenAI timeout (15s)' : err);
+    return Response.json(
+      { error: isTimeout ? 'TTS request timed out' : 'Internal server error' },
+      { status: isTimeout ? 504 : 500, headers: rateHeaders },
+    );
   }
 }
