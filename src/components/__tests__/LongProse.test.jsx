@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import LongProse, { splitParagraphs, MAX_PROSE_CHARS, MAX_PROSE_PARAGRAPHS } from '../LongProse';
+import LongProse, { splitParagraphs, MAX_PROSE_CHARS, MAX_PROSE_PARAGRAPHS, MAX_SAVED_PROSE } from '../LongProse';
+
+// Mock storage utilities
+vi.mock('../../utils/storage', () => ({
+  loadState: vi.fn(() => []),
+  saveState: vi.fn(),
+}));
+
+import { loadState, saveState } from '../../utils/storage';
 
 describe('splitParagraphs', () => {
   it('splits on double newlines', () => {
@@ -40,6 +48,8 @@ describe('LongProse', () => {
   beforeEach(() => {
     onSpeakParagraph = vi.fn();
     onStop = vi.fn();
+    loadState.mockReturnValue([]);
+    saveState.mockClear();
   });
 
   it('renders textarea and controls', () => {
@@ -147,6 +157,7 @@ describe('LongProse', () => {
   it('exports expected limit constants', () => {
     expect(MAX_PROSE_CHARS).toBe(2000);
     expect(MAX_PROSE_PARAGRAPHS).toBe(10);
+    expect(MAX_SAVED_PROSE).toBe(5);
   });
 
   it('truncates input at MAX_PROSE_CHARS', async () => {
@@ -240,5 +251,179 @@ describe('LongProse', () => {
     expect(onSpeakParagraph).toHaveBeenCalledWith('Second paragraph', expect.any(Function));
 
     vi.useRealTimers();
+  });
+});
+
+describe('Saved prose', () => {
+  let onSpeakParagraph;
+  let onStop;
+
+  beforeEach(() => {
+    onSpeakParagraph = vi.fn();
+    onStop = vi.fn();
+    loadState.mockReturnValue([]);
+    saveState.mockClear();
+  });
+
+  it('shows save button when text is entered', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'Hello world');
+
+    expect(screen.getByLabelText('Save prose')).toBeInTheDocument();
+  });
+
+  it('hides save button when no text', () => {
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    expect(screen.queryByLabelText('Save prose')).not.toBeInTheDocument();
+  });
+
+  it('enters save mode with title input when save is clicked', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'Hello world');
+    await user.click(screen.getByLabelText('Save prose'));
+
+    expect(screen.getByLabelText('Prose title')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Title for this prose...')).toBeInTheDocument();
+    expect(screen.getByLabelText('Confirm save')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cancel save')).toBeInTheDocument();
+  });
+
+  it('saves prose entry when title is confirmed', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'My explanation text');
+    await user.click(screen.getByLabelText('Save prose'));
+    await user.type(screen.getByLabelText('Prose title'), 'Surgery Explanation');
+    await user.click(screen.getByLabelText('Confirm save'));
+
+    // Entry should appear in the saved list
+    expect(screen.getByText('Surgery Explanation')).toBeInTheDocument();
+    expect(screen.getByLabelText('Play Surgery Explanation')).toBeInTheDocument();
+    expect(screen.getByLabelText('Delete Surgery Explanation')).toBeInTheDocument();
+    // Textarea should be cleared after save
+    expect(screen.getByLabelText('Long prose input')).toHaveValue('');
+    // Should persist to localStorage
+    expect(saveState).toHaveBeenCalledWith('savedProse', expect.arrayContaining([
+      expect.objectContaining({ title: 'Surgery Explanation', text: 'My explanation text' }),
+    ]));
+  });
+
+  it('saves prose with Enter key in title input', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'Some text');
+    await user.click(screen.getByLabelText('Save prose'));
+    await user.type(screen.getByLabelText('Prose title'), 'Quick Title{Enter}');
+
+    expect(screen.getByText('Quick Title')).toBeInTheDocument();
+  });
+
+  it('cancels save mode when cancel is clicked', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'Hello world');
+    await user.click(screen.getByLabelText('Save prose'));
+    await user.click(screen.getByLabelText('Cancel save'));
+
+    // Should exit save mode, text still present
+    expect(screen.queryByLabelText('Prose title')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Long prose input')).toHaveValue('Hello world');
+  });
+
+  it('cancels save mode with Escape key', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'Hello world');
+    await user.click(screen.getByLabelText('Save prose'));
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByLabelText('Prose title')).not.toBeInTheDocument();
+  });
+
+  it('disables confirm when title is empty', async () => {
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'Hello world');
+    await user.click(screen.getByLabelText('Save prose'));
+
+    expect(screen.getByLabelText('Confirm save')).toBeDisabled();
+  });
+
+  it('loads saved prose from localStorage on mount', () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Saved Entry', text: 'Hello world' },
+    ]);
+
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    expect(screen.getByText('My Saved Entry')).toBeInTheDocument();
+    expect(screen.getByLabelText('Play My Saved Entry')).toBeInTheDocument();
+  });
+
+  it('deletes saved prose entry', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'Entry One', text: 'Text one' },
+      { id: '2', title: 'Entry Two', text: 'Text two' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.click(screen.getByLabelText('Delete Entry One'));
+
+    expect(screen.queryByText('Entry One')).not.toBeInTheDocument();
+    expect(screen.getByText('Entry Two')).toBeInTheDocument();
+  });
+
+  it('plays saved prose entry', async () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'My Entry', text: 'First paragraph\n\nSecond paragraph' },
+    ]);
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.click(screen.getByLabelText('Play My Entry'));
+
+    expect(onSpeakParagraph).toHaveBeenCalledWith('First paragraph', expect.any(Function));
+    expect(screen.getByText(/Playing: My Entry/)).toBeInTheDocument();
+  });
+
+  it('hides save button when 5 entries already saved', async () => {
+    loadState.mockReturnValue(
+      Array.from({ length: MAX_SAVED_PROSE }, (_, i) => ({
+        id: String(i),
+        title: `Entry ${i}`,
+        text: `Text ${i}`,
+      }))
+    );
+
+    const user = userEvent.setup();
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    await user.type(screen.getByLabelText('Long prose input'), 'New text');
+
+    expect(screen.queryByLabelText('Save prose')).not.toBeInTheDocument();
+  });
+
+  it('shows saved count in status when entries exist but no text typed', () => {
+    loadState.mockReturnValue([
+      { id: '1', title: 'Entry One', text: 'Text one' },
+      { id: '2', title: 'Entry Two', text: 'Text two' },
+    ]);
+
+    render(<LongProse onSpeakParagraph={onSpeakParagraph} onStop={onStop} />);
+
+    expect(screen.getByText('2/5 saved')).toBeInTheDocument();
   });
 });

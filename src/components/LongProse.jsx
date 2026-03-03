@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback, useEffect, memo } from 'react';
+import { loadState, saveState } from '../utils/storage';
 
 export const MAX_PROSE_CHARS = 2000;
 export const MAX_PROSE_PARAGRAPHS = 10;
+export const MAX_SAVED_PROSE = 5;
 
 /**
  * Split text into paragraphs (double-newline separated),
@@ -15,10 +17,8 @@ export function splitParagraphs(text) {
 }
 
 /**
- * LongProse — extended text input with paragraph-pause speech.
- *
- * Renders a large textarea for composing multi-paragraph messages
- * and speaks them with natural pauses between paragraphs.
+ * LongProse — extended text input with paragraph-pause speech
+ * and up to 5 saved entries for quick replay.
  */
 export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: externalSpeaking, isPremium }) {
   const [text, setText] = useState('');
@@ -27,6 +27,18 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
   const stopRef = useRef(false);
   const timerRef = useRef(null);
   const textareaRef = useRef(null);
+  const speakingParagraphsRef = useRef([]);
+
+  // Saved prose entries persisted in localStorage
+  const [savedProse, setSavedProse] = useState(() => loadState('savedProse', []));
+  const [isSaveMode, setIsSaveMode] = useState(false);
+  const [saveTitle, setSaveTitle] = useState('');
+  const [playingId, setPlayingId] = useState(null);
+
+  // Persist saved prose whenever it changes
+  useEffect(() => {
+    saveState('savedProse', savedProse);
+  }, [savedProse]);
 
   const paragraphs = splitParagraphs(text);
   const hasParagraphs = paragraphs.length > 0;
@@ -34,11 +46,13 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
   const charsRemaining = MAX_PROSE_CHARS - text.length;
   const overLimit = tooManyParagraphs || charsRemaining < 0;
   const canSpeak = hasParagraphs && !overLimit;
+  const canSave = hasParagraphs && !overLimit && !speaking && savedProse.length < MAX_SAVED_PROSE;
 
   // Sync with external speaking state (e.g. when TTS finishes)
   useEffect(() => {
     if (externalSpeaking === false && speaking && paragraphIndex === -1) {
       setSpeaking(false);
+      setPlayingId(null);
     }
   }, [externalSpeaking, speaking, paragraphIndex]);
 
@@ -46,6 +60,8 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
     stopRef.current = true;
     setSpeaking(false);
     setParagraphIndex(-1);
+    setPlayingId(null);
+    speakingParagraphsRef.current = [];
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -53,26 +69,30 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
     onStop();
   }, [onStop]);
 
-  const speakAll = useCallback(() => {
-    if (!canSpeak) return;
-
+  const startSpeaking = useCallback((paras) => {
+    if (paras.length === 0) return;
+    speakingParagraphsRef.current = paras;
     stopRef.current = false;
     setSpeaking(true);
 
     let idx = 0;
 
     const speakNext = () => {
-      if (stopRef.current || idx >= paragraphs.length) {
+      if (stopRef.current || idx >= paras.length) {
         setSpeaking(false);
         setParagraphIndex(-1);
+        setPlayingId(null);
+        speakingParagraphsRef.current = [];
         return;
       }
       setParagraphIndex(idx);
-      onSpeakParagraph(paragraphs[idx], () => {
+      onSpeakParagraph(paras[idx], () => {
         idx++;
-        if (stopRef.current || idx >= paragraphs.length) {
+        if (stopRef.current || idx >= paras.length) {
           setSpeaking(false);
           setParagraphIndex(-1);
+          setPlayingId(null);
+          speakingParagraphsRef.current = [];
           return;
         }
         // Pause between paragraphs (800ms for natural cadence)
@@ -81,7 +101,39 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
     };
 
     speakNext();
-  }, [paragraphs, canSpeak, onSpeakParagraph]);
+  }, [onSpeakParagraph]);
+
+  const speakAll = useCallback(() => {
+    if (!canSpeak) return;
+    startSpeaking(paragraphs);
+  }, [paragraphs, canSpeak, startSpeaking]);
+
+  const playSaved = useCallback((entry) => {
+    if (speaking) handleStop();
+    const paras = splitParagraphs(entry.text);
+    if (paras.length === 0) return;
+    setPlayingId(entry.id);
+    startSpeaking(paras);
+  }, [speaking, handleStop, startSpeaking]);
+
+  const handleSave = useCallback(() => {
+    const trimmedTitle = saveTitle.trim();
+    if (!trimmedTitle || !canSave) return;
+    const entry = {
+      id: Date.now().toString(),
+      title: trimmedTitle,
+      text,
+    };
+    setSavedProse((prev) => [...prev, entry]);
+    setIsSaveMode(false);
+    setSaveTitle('');
+    setText('');
+  }, [saveTitle, canSave, text]);
+
+  const deleteSaved = useCallback((id) => {
+    if (playingId === id) handleStop();
+    setSavedProse((prev) => prev.filter((e) => e.id !== id));
+  }, [playingId, handleStop]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -99,6 +151,93 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
         gap: 8,
       }}
     >
+      {/* Saved prose entries */}
+      {savedProse.length > 0 && (
+        <div
+          style={{
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            maxHeight: 240,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {savedProse.map((entry) => (
+            <div
+              key={entry.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: playingId === entry.id ? '#14B8A622' : '#1E293B',
+                border: playingId === entry.id ? '1px solid #14B8A6' : '1px solid #334155',
+                borderRadius: 10,
+                padding: '6px 10px',
+                minHeight: 44,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 14,
+                  color: '#E2E8F0',
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontWeight: 500,
+                }}
+              >
+                {entry.title}
+              </span>
+              <button
+                onClick={() => playSaved(entry)}
+                disabled={speaking && playingId !== entry.id}
+                aria-label={'Play ' + entry.title}
+                style={{
+                  width: 40,
+                  height: 40,
+                  background: speaking && playingId !== entry.id ? '#334155' : '#14B8A6',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: '#fff',
+                  fontSize: 18,
+                  cursor: speaking && playingId !== entry.id ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {'\u25B6'}
+              </button>
+              <button
+                onClick={() => deleteSaved(entry.id)}
+                disabled={speaking}
+                aria-label={'Delete ' + entry.title}
+                style={{
+                  width: 40,
+                  height: 40,
+                  background: 'transparent',
+                  border: '1px solid #47556944',
+                  borderRadius: 10,
+                  color: speaking ? '#475569' : '#94A3B8',
+                  fontSize: 16,
+                  cursor: speaking ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {'\u2715'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Textarea */}
       <div style={{ flex: 1, minHeight: 0 }}>
         <textarea
@@ -162,9 +301,14 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
                 fontSize: 14,
                 color: '#94A3B8',
                 paddingLeft: 4,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
-              Speaking paragraph {paragraphIndex + 1} of {paragraphs.length}
+              {playingId
+                ? <>Playing: {savedProse.find((e) => e.id === playingId)?.title} &mdash; {paragraphIndex + 1} of {speakingParagraphsRef.current.length}</>
+                : <>Speaking paragraph {paragraphIndex + 1} of {speakingParagraphsRef.current.length}</>}
             </div>
             {/* Stop button */}
             <button
@@ -189,6 +333,76 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
               {'\u23F9'} Stop
             </button>
           </>
+        ) : isSaveMode ? (
+          <>
+            {/* Title input for saving */}
+            <input
+              type="text"
+              value={saveTitle}
+              onChange={(e) => setSaveTitle(e.target.value)}
+              placeholder="Title for this prose..."
+              autoFocus
+              maxLength={50}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSave();
+                if (e.key === 'Escape') { setIsSaveMode(false); setSaveTitle(''); }
+              }}
+              aria-label="Prose title"
+              style={{
+                flex: 1,
+                height: 44,
+                background: '#0F172A',
+                border: '2px solid #14B8A6',
+                borderRadius: 10,
+                color: '#E2E8F0',
+                fontSize: 15,
+                padding: '0 12px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            <button
+              onClick={handleSave}
+              disabled={!saveTitle.trim()}
+              aria-label="Confirm save"
+              style={{
+                height: 48,
+                minWidth: 56,
+                background: saveTitle.trim() ? '#14B8A6' : '#334155',
+                border: 'none',
+                borderRadius: 12,
+                color: saveTitle.trim() ? '#fff' : '#64748B',
+                fontSize: 20,
+                fontWeight: 600,
+                cursor: saveTitle.trim() ? 'pointer' : 'default',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {'\u2713'}
+            </button>
+            <button
+              onClick={() => { setIsSaveMode(false); setSaveTitle(''); }}
+              aria-label="Cancel save"
+              style={{
+                height: 48,
+                minWidth: 56,
+                background: '#334155',
+                border: 'none',
+                borderRadius: 12,
+                color: '#E2E8F0',
+                fontSize: 18,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {'\u2715'}
+            </button>
+          </>
         ) : (
           <>
             {/* Status: paragraph count + char counter */}
@@ -204,13 +418,37 @@ export default memo(function LongProse({ onSpeakParagraph, onStop, speaking: ext
                 ? `${paragraphs.length}/${MAX_PROSE_PARAGRAPHS} paragraphs (too many)`
                 : hasParagraphs
                   ? `${paragraphs.length} paragraph${paragraphs.length !== 1 ? 's' : ''}`
-                  : 'No text yet'}
+                  : savedProse.length > 0 ? `${savedProse.length}/${MAX_SAVED_PROSE} saved` : 'No text yet'}
               {text.length > 0 && (
                 <span style={{ marginLeft: 8, color: charsRemaining < 200 ? '#F59E0B' : '#64748B' }}>
                   {charsRemaining} chars left
                 </span>
               )}
             </div>
+            {/* Save button */}
+            {canSave && (
+              <button
+                onClick={() => setIsSaveMode(true)}
+                aria-label="Save prose"
+                style={{
+                  height: 48,
+                  minWidth: 80,
+                  background: '#334155',
+                  border: '1px solid #475569',
+                  borderRadius: 12,
+                  color: '#E2E8F0',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                }}
+              >
+                {'\uD83D\uDCBE'} Save
+              </button>
+            )}
             {/* Speak button */}
             <button
               onClick={speakAll}
