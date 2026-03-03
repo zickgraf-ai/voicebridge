@@ -125,6 +125,7 @@ export function usePremiumSpeech() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, voice: voiceName }),
+            signal: AbortSignal.timeout(10_000),
           });
           if (resp.ok && !cancelled) {
             const blob = await resp.blob();
@@ -504,6 +505,7 @@ export function usePremiumSpeech() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, voice: voiceName }),
+          signal: AbortSignal.timeout(10_000),
         });
         if (audioRef.current !== null) return; // another tap took over
         if (resp.ok) {
@@ -529,6 +531,7 @@ export function usePremiumSpeech() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, voice: voiceName }),
+          signal: AbortSignal.timeout(10_000),
         });
         if (audioRef.current !== audio) return;
         if (resp.ok) {
