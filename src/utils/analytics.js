@@ -343,7 +343,7 @@ export function buildPayload(dayData, settings) {
     settings_snapshot: {
       button_size: settings?.buttonSize || 'large',
       voice_speed: settings?.voiceRate || 1.0,
-      smart_suggestions_enabled: true,
+      smart_suggestions_enabled: settings?.smartSuggestionsEnabled ?? true,
       premium_voice_enabled: (settings?.voiceProvider || 'premium') === 'premium',
       location_feature_enabled: false,
     },

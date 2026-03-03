@@ -36,6 +36,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'audio/**/*.mp3'],
+        globIgnores: ['**/dashboard*'],
         skipWaiting: true,
         clientsClaim: true,
       },

@@ -93,43 +93,43 @@ export default async function handler(req, res) {
     const sug = body.suggestions || {};
     const ses = body.session || {};
 
-    const result = await sql`
-      INSERT INTO analytics_pings (
-        schema_version, app_version, platform, os_version, locale,
-        button_size, voice_speed, smart_suggestions_enabled, premium_voice_enabled, location_feature_enabled,
-        prebuilt_total_spoken, prebuilt_unique_spoken,
-        custom_total_spoken, custom_unique_spoken, custom_avg_char_length, custom_max_char_length,
-        device_voice_requests, device_voice_successes, device_voice_failures,
-        premium_voice_requests, premium_voice_successes, premium_voice_failures,
-        premium_voice_avg_latency_ms, premium_voice_cache_hits,
-        suggestions_shown, suggestions_accepted, suggestions_dismissed,
-        sessions_today, total_active_minutes
-      ) VALUES (
-        ${body.schema_version}, ${body.app_version}, ${body.platform || null}, ${body.os_version || null}, ${body.locale || null},
-        ${ss.button_size || null}, ${ss.voice_speed || null}, ${ss.smart_suggestions_enabled ?? null}, ${ss.premium_voice_enabled ?? null}, ${ss.location_feature_enabled ?? null},
-        ${preb.total_spoken || 0}, ${preb.unique_spoken || 0},
-        ${cust.total_spoken || 0}, ${cust.unique_spoken || 0}, ${cust.avg_character_length || null}, ${cust.max_character_length || null},
-        ${dv.requests || 0}, ${dv.successes || 0}, ${dv.failures || 0},
-        ${pv.requests || 0}, ${pv.successes || 0}, ${pv.failures || 0},
-        ${pv.avg_latency_ms || null}, ${pv.cache_hits || 0},
-        ${sug.shown || 0}, ${sug.accepted || 0}, ${sug.dismissed || 0},
-        ${ses.sessions_today || 0}, ${ses.total_active_minutes || 0}
-      ) RETURNING id
-    `;
-
-    const pingId = result[0]?.id;
-
-    // Insert phrase usage breakdown
+    // Build phrase_usage arrays for atomic insert
     const byPhraseId = preb.by_phrase_id || {};
     const phraseEntries = Object.entries(byPhraseId);
-    if (pingId && phraseEntries.length > 0) {
-      for (const [phraseId, count] of phraseEntries) {
-        await sql`
-          INSERT INTO phrase_usage (ping_id, phrase_id, spoken_count)
-          VALUES (${pingId}, ${phraseId}, ${count})
-        `;
-      }
-    }
+    const phraseIds = phraseEntries.map(([id]) => id);
+    const spokenCounts = phraseEntries.map(([, count]) => count);
+
+    // Single atomic CTE: inserts the ping row, then inserts phrase_usage rows
+    // referencing the new ping_id. When phraseEntries is empty, UNNEST produces
+    // zero rows so no phrase_usage rows are inserted, but the CTE still executes.
+    await sql`
+      WITH new_ping AS (
+        INSERT INTO analytics_pings (
+          schema_version, app_version, platform, os_version, locale,
+          button_size, voice_speed, smart_suggestions_enabled, premium_voice_enabled, location_feature_enabled,
+          prebuilt_total_spoken, prebuilt_unique_spoken,
+          custom_total_spoken, custom_unique_spoken, custom_avg_char_length, custom_max_char_length,
+          device_voice_requests, device_voice_successes, device_voice_failures,
+          premium_voice_requests, premium_voice_successes, premium_voice_failures,
+          premium_voice_avg_latency_ms, premium_voice_cache_hits,
+          suggestions_shown, suggestions_accepted, suggestions_dismissed,
+          sessions_today, total_active_minutes
+        ) VALUES (
+          ${body.schema_version}, ${body.app_version}, ${body.platform || null}, ${body.os_version || null}, ${body.locale || null},
+          ${ss.button_size || null}, ${ss.voice_speed || null}, ${ss.smart_suggestions_enabled ?? null}, ${ss.premium_voice_enabled ?? null}, ${ss.location_feature_enabled ?? null},
+          ${preb.total_spoken || 0}, ${preb.unique_spoken || 0},
+          ${cust.total_spoken || 0}, ${cust.unique_spoken || 0}, ${cust.avg_character_length || null}, ${cust.max_character_length || null},
+          ${dv.requests || 0}, ${dv.successes || 0}, ${dv.failures || 0},
+          ${pv.requests || 0}, ${pv.successes || 0}, ${pv.failures || 0},
+          ${pv.avg_latency_ms || null}, ${pv.cache_hits || 0},
+          ${sug.shown || 0}, ${sug.accepted || 0}, ${sug.dismissed || 0},
+          ${ses.sessions_today || 0}, ${ses.total_active_minutes || 0}
+        ) RETURNING id
+      )
+      INSERT INTO phrase_usage (ping_id, phrase_id, spoken_count)
+      SELECT new_ping.id, u.phrase_id, u.spoken_count
+      FROM new_ping, UNNEST(${phraseIds}::text[], ${spokenCounts}::int[]) AS u(phrase_id, spoken_count)
+    `;
 
     res.writeHead(204);
     return res.end();
