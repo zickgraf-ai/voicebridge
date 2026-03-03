@@ -22,7 +22,7 @@ export default memo(function SpeechBar({
         ref.current.setSelectionRange(9999, 9999);
       }
     }
-  }, [editing]);
+  }, [editing, expanded]);
 
   const has = text && text.trim().length > 0;
 
@@ -217,51 +217,35 @@ export default memo(function SpeechBar({
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        {editing ? (
-          <input
-            ref={ref}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                setEditing(false);
-                onSpeak();
-              }
-            }}
-            placeholder="Type your message..."
-            aria-label="Type your message"
-            style={{
-              width: '100%',
-              background: 'transparent',
-              border: 'none',
-              color: '#fff',
-              fontSize: 18,
-              fontWeight: 500,
-              outline: 'none',
-              padding: 0,
-            }}
-          />
-        ) : (
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label={has ? `Current message: ${text}. Tap to edit` : 'Tap here to type a message'}
-            onClick={() => setEditing(true)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setEditing(true); }}
-            style={{
-              fontSize: 18,
-              color: has ? '#fff' : '#64748B',
-              fontWeight: 500,
-              cursor: 'text',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <span aria-live="polite">{text || 'Tap here to type...'}</span>
-          </div>
-        )}
+        <input
+          ref={ref}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onFocus={() => {
+            if (!editing) setEditing(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              setEditing(false);
+              onSpeak();
+            }
+          }}
+          placeholder="Tap here to type..."
+          aria-label={has ? `Current message: ${text}. Tap to edit` : 'Tap here to type a message'}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: 'none',
+            color: has ? '#fff' : '#64748B',
+            fontSize: 18,
+            fontWeight: 500,
+            outline: 'none',
+            padding: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        />
       </div>
       <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
         {has && editing && (
@@ -351,7 +335,7 @@ export default memo(function SpeechBar({
               </button>
             )}
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => { if (ref.current) ref.current.focus(); }}
               aria-label="Edit message"
               style={{
                 background: '#334155',
@@ -391,7 +375,7 @@ export default memo(function SpeechBar({
         )}
         {!has && !editing && (
           <button
-            onClick={() => setEditing(true)}
+            onClick={() => { if (ref.current) ref.current.focus(); }}
             aria-label="Open keyboard"
             style={{
               background: '#334155',
