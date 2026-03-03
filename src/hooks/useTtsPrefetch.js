@@ -23,8 +23,6 @@ export function useTtsPrefetch(text) {
   const { settings } = state;
   const isPremium = settings.voiceProvider === 'premium';
   const voiceName = settings.premiumVoice || 'nova';
-  const voiceRate = settings.voiceRate || 0.9;
-
   const timerRef = useRef(null);
   const abortRef = useRef(null);
   const lastPrefetchedRef = useRef('');
@@ -67,7 +65,7 @@ export function useTtsPrefetch(text) {
         const resp = await fetch('/api/speak', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: trimmed, voice: voiceName, speed: voiceRate }),
+          body: JSON.stringify({ text: trimmed, voice: voiceName }),
           signal: controller.signal,
         });
 
@@ -89,7 +87,7 @@ export function useTtsPrefetch(text) {
         timerRef.current = null;
       }
     };
-  }, [text, isPremium, voiceName, voiceRate]);
+  }, [text, isPremium, voiceName]);
 
   // Abort in-flight fetch on unmount
   useEffect(() => {
