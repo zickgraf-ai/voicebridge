@@ -9,6 +9,7 @@ import { getIdentityPhrase } from '../utils/identity';
 import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases';
 import { SMART_PHRASES } from '../data/smartSuggest';
 import { updateFrequencyMap } from '../utils/smartEngine';
+import { putAudio, hasCachedKeySync } from '../utils/audioCache';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { getTypingSuggestions } from '../utils/typingSuggestions';
 import SpeechBar from '../components/SpeechBar';
@@ -18,6 +19,7 @@ import PainScale from '../components/PainScale';
 import PhraseBuilder from '../components/PhraseBuilder';
 import CacheProgress from '../components/CacheProgress';
 import AddPhraseModal from '../components/AddPhraseModal';
+import LongProse from '../components/LongProse';
 
 // Collect all phrases for the smart engine to score
 const ALL_SCORABLE_PHRASES = (() => {
@@ -54,7 +56,7 @@ export default function TalkScreen() {
   const { state, addHistory, setFrequencyMap, setCustomPhrases } = useAppContext();
   const { profile, settings, history, frequencyMap, pinnedPhrases, locations, customPhrases, categoryOrder } = state;
   const voices = useVoices();
-  const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, error: voiceError } = usePremiumSpeech();
+  const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, isPremium, error: voiceError } = usePremiumSpeech();
   const { locationLabel } = useLocation(locations || []);
 
   const [text, setText] = useState('');
@@ -138,6 +140,27 @@ export default function TalkScreen() {
     },
     [settings, voices, cat, addHistory, setFrequencyMap, premiumSpeak]
   );
+
+  // ── Long Prose: always use device voice (free, no API cost) ──
+  const handleSpeakParagraph = useCallback(
+    (paragraphText, onDone) => {
+      if (!window.speechSynthesis || !paragraphText) { onDone(); return; }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(paragraphText);
+      utterance.rate = settings.voiceRate || 0.9;
+      const voice = voices.find((v) => v.voiceURI === settings.voiceURI) || voices[0];
+      if (voice) utterance.voice = voice;
+      utterance.onend = () => onDone();
+      utterance.onerror = () => onDone();
+      window.speechSynthesis.speak(utterance);
+      addHistory({ phrase: paragraphText, category: 'prose', source: 'typed' });
+    },
+    [settings.voiceRate, settings.voiceURI, voices, addHistory]
+  );
+
+  const handleStopProse = useCallback(() => {
+    window.speechSynthesis?.cancel();
+  }, []);
 
   const handleTap = useCallback(
     (p) => {
@@ -365,6 +388,12 @@ export default function TalkScreen() {
             <span style={{ fontSize: 15 }}>No custom phrases yet</span>
             <span style={{ fontSize: 13 }}>Tap "Add Phrase" to create your own buttons</span>
           </div>
+        ) : cat === 'prose' ? (
+          <LongProse
+            onSpeakParagraph={handleSpeakParagraph}
+            onStop={handleStopProse}
+            isPremium={isPremium}
+          />
         ) : (
           <PhraseGrid
             items={items}
@@ -380,6 +409,21 @@ export default function TalkScreen() {
         <AddPhraseModal
           onAdd={(phrase) => {
             setCustomPhrases((prev) => [...prev, phrase]);
+            // Pre-cache premium voice audio so the phrase plays instantly
+            if (isPremium && phrase.t) {
+              const voice = settings.premiumVoice || 'nova';
+              const key = voice + ':' + phrase.t;
+              if (!hasCachedKeySync(key)) {
+                fetch('/api/speak', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: phrase.t, voice, speed: settings.voiceRate || 0.9 }),
+                })
+                  .then((resp) => resp.ok ? resp.blob() : null)
+                  .then((blob) => { if (blob) putAudio(key, blob); })
+                  .catch(() => {}); // Silent — fallback voice handles it
+              }
+            }
           }}
           onClose={() => setShowAddModal(false)}
         />
