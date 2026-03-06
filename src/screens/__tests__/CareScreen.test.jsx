@@ -26,6 +26,8 @@ const mockSetPinnedPhrases = vi.fn((updater) => {
   if (typeof updater === 'function') updater([]);
 });
 
+const mockSetSettings = vi.fn();
+
 vi.mock('../../context/AppContext', async () => {
   const actual = await vi.importActual('../../context/AppContext');
   return {
@@ -44,9 +46,11 @@ vi.mock('../../context/AppContext', async () => {
           tabSize: 'xl',
           painReminder: 120,
           caregiverAlert: 6,
+          caregiverLock: { enabled: false, passcode: '' },
         },
       },
       setPinnedPhrases: mockSetPinnedPhrases,
+      setSettings: mockSetSettings,
     }),
   };
 });
@@ -129,6 +133,21 @@ describe('CareScreen audio pre-caching', () => {
 
     // Should NOT fetch since hasCachedKeySync returns true
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('CareScreen settings lock', () => {
+  it('shows Settings Lock toggle on overview tab', () => {
+    render(<CareScreen />);
+    expect(screen.getByText('Settings Lock')).toBeInTheDocument();
+    expect(screen.getByLabelText('Settings lock')).toBeInTheDocument();
+  });
+
+  it('opens passcode modal when toggling lock on', async () => {
+    const user = userEvent.setup();
+    render(<CareScreen />);
+    await user.click(screen.getByLabelText('Settings lock'));
+    expect(screen.getByText(/Set a 4-digit PIN/i)).toBeInTheDocument();
   });
 });
 

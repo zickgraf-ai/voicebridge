@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { putAudio, hasCachedKeySync } from '../utils/audioCache';
 import AUDIO_MANIFEST from '../data/audioManifest.json';
+import ToggleSwitch from '../components/ToggleSwitch';
+import PasscodeModal from './settings/PasscodeModal';
 
 const EXPIRY_OPTIONS = [
   { label: '24 hours', value: 24 * 60 * 60 * 1000 },
@@ -21,12 +23,38 @@ const QUICK_PIN_PHRASES = [
 ];
 
 export default function CareScreen() {
-  const { state, setPinnedPhrases } = useAppContext();
+  const { state, setPinnedPhrases, setSettings } = useAppContext();
   const { profile, history, pinnedPhrases, settings } = state;
   const [tab, setTab] = useState('overview');
   const [showPinUI, setShowPinUI] = useState(false);
   const [customPinText, setCustomPinText] = useState('');
   const [pinExpiry, setPinExpiry] = useState(null); // null = permanent
+  const [showPasscodeModal, setShowPasscodeModal] = useState(false);
+  const [passcodeAction, setPasscodeAction] = useState(null); // 'enable' or 'disable'
+
+  const caregiverLock = settings.caregiverLock || { enabled: false, passcode: '' };
+
+  const handleToggleLock = () => {
+    if (caregiverLock.enabled) {
+      // Disabling — verify PIN first
+      setPasscodeAction('disable');
+      setShowPasscodeModal(true);
+    } else {
+      // Enabling — set PIN
+      setPasscodeAction('enable');
+      setShowPasscodeModal(true);
+    }
+  };
+
+  const handlePasscodeSuccess = (pin) => {
+    if (passcodeAction === 'enable') {
+      setSettings((s) => ({ ...s, caregiverLock: { enabled: true, passcode: pin } }));
+    } else {
+      setSettings((s) => ({ ...s, caregiverLock: { enabled: false, passcode: '' } }));
+    }
+    setShowPasscodeModal(false);
+    setPasscodeAction(null);
+  };
 
   // Compute stats from real history
   const stats = useMemo(() => {
@@ -312,6 +340,34 @@ export default function CareScreen() {
                 is used.
               </div>
             )}
+
+            {/* Settings Lock */}
+            <div
+              style={{
+                ...card,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <span style={{ fontSize: 24 }}>{'\uD83D\uDD12'}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: '#E2E8F0', fontSize: 15, fontWeight: 500 }}>
+                  Settings Lock
+                </div>
+                <div style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
+                  {caregiverLock.enabled
+                    ? 'Settings are locked with a PIN'
+                    : 'Lock settings to prevent changes'}
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={caregiverLock.enabled}
+                onChange={handleToggleLock}
+                ariaLabel="Settings lock"
+                color="#3B82F6"
+              />
+            </div>
           </>
         )}
         {tab === 'activity' && (
@@ -561,6 +617,14 @@ export default function CareScreen() {
           </>
         )}
       </div>
+      {showPasscodeModal && (
+        <PasscodeModal
+          mode={passcodeAction === 'enable' ? 'set' : 'verify'}
+          correctPasscode={caregiverLock.passcode}
+          onSuccess={handlePasscodeSuccess}
+          onCancel={() => { setShowPasscodeModal(false); setPasscodeAction(null); }}
+        />
+      )}
     </div>
   );
 }

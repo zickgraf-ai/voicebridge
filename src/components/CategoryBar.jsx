@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useMemo } from 'react';
 import { CATEGORIES, TAB_SIZES } from '../data/phrases';
 
-export default memo(function CategoryBar({ active, onSelect, size, categoryOrder }) {
+export default memo(function CategoryBar({ active, onSelect, size, categoryOrder, enabledCategories, onAddCategories }) {
   const s = TAB_SIZES[size] || TAB_SIZES.xl;
   const activeRef = useRef(null);
 
@@ -12,18 +12,25 @@ export default memo(function CategoryBar({ active, onSelect, size, categoryOrder
   }, [active]);
 
   const orderedCategories = useMemo(() => {
-    if (!categoryOrder || categoryOrder.length === 0) return CATEGORIES;
+    let cats = CATEGORIES;
+    // Filter by enabled categories if provided
+    if (enabledCategories) {
+      cats = cats.filter((c) => enabledCategories.includes(c.id));
+    }
+    if (!categoryOrder || categoryOrder.length === 0) return cats;
     const catMap = {};
-    for (const c of CATEGORIES) catMap[c.id] = c;
+    for (const c of cats) catMap[c.id] = c;
     const ordered = categoryOrder
       .filter((id) => catMap[id])
       .map((id) => catMap[id]);
     // Append any categories not in the order (safety net)
-    for (const c of CATEGORIES) {
+    for (const c of cats) {
       if (!categoryOrder.includes(c.id)) ordered.push(c);
     }
     return ordered;
-  }, [categoryOrder]);
+  }, [categoryOrder, enabledCategories]);
+
+  const hasHiddenCategories = enabledCategories && enabledCategories.length < CATEGORIES.length;
 
   return (
     <div
@@ -76,6 +83,40 @@ export default memo(function CategoryBar({ active, onSelect, size, categoryOrder
           </span>
         </button>
       ))}
+      {hasHiddenCategories && onAddCategories && (
+        <button
+          aria-label="Add more categories"
+          onClick={onAddCategories}
+          style={{
+            background: 'transparent',
+            border: '2px dashed #475569',
+            borderRadius: s.radius,
+            padding: s.pad,
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            minWidth: s.minW,
+            minHeight: s.h,
+            gap: s.gap,
+          }}
+        >
+          <span style={{ fontSize: s.icon, lineHeight: 1, color: '#475569' }}>+</span>
+          <span
+            style={{
+              fontSize: s.label,
+              color: '#475569',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              lineHeight: 1,
+            }}
+          >
+            More
+          </span>
+        </button>
+      )}
     </div>
   );
 });
