@@ -5,6 +5,7 @@ on:
     branches-ignore:
       - main
       - master
+      - dev
 
 permissions:
   contents: read
@@ -22,13 +23,8 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Determine base branch
-            let baseBranch = 'main';
-            try {
-              await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
-            } catch (e) {
-              baseBranch = 'master';
-            }
+            // All feature branches target dev; only dev itself targets main
+            const baseBranch = 'dev';
 
             // Check for existing PR to avoid duplicates
             const { data: existingPRs } = await github.rest.pulls.list({
