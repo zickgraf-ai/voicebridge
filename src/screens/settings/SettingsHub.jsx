@@ -39,7 +39,7 @@ const HUB_ROWS = [
   { id: 'about', icon: null, label: 'About TapToSpeak', getSummary: () => 'Our story, contact & partnerships' },
 ];
 
-export default function SettingsHub({ settings, locations, onSelectSection, onNavigate }) {
+export default function SettingsHub({ settings, locations, onSelectSection, onNavigate, lockBanner }) {
   return (
     <div
       style={{
@@ -54,6 +54,8 @@ export default function SettingsHub({ settings, locations, onSelectSection, onNa
       <h2 style={{ color: '#F1F5F9', margin: 0, fontSize: 20, padding: '0 2px' }}>
         {'\u2699\uFE0F'} Settings
       </h2>
+
+      {lockBanner}
 
       {/* About TapToSpeak — prominent at top */}
       <button

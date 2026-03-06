@@ -18,6 +18,7 @@ vi.mock('../../context/AppContext', () => ({
         tabSize: 'xl',
         painReminder: 120,
         caregiverAlert: 6,
+        enabledCategories: ['smart', 'quick', 'medical', 'food', 'people', 'emotions', 'build'],
       },
       profile: { name: 'Sarah', dob: '', address: '', condition: 'Test', familyMembers: [], medications: [] },
       locations: [],
@@ -28,6 +29,8 @@ vi.mock('../../context/AppContext', () => ({
     setLocations: vi.fn(),
     setCategoryOrder: vi.fn(),
   }),
+  DEFAULT_ENABLED_CATEGORIES: ['smart', 'quick', 'medical', 'food', 'people', 'emotions', 'build'],
+  ALL_CATEGORY_IDS: ['smart', 'mine', 'build', 'quick', 'medical', 'food', 'comfort', 'people', 'emotions', 'prose'],
 }));
 
 vi.mock('../../hooks/useVoices', () => ({

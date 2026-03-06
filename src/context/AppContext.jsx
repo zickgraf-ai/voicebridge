@@ -33,6 +33,7 @@ const DEFAULT_SETTINGS = {
   premiumVoice: 'nova',
   premiumOnly: false,
   enabledCategories: DEFAULT_ENABLED_CATEGORIES,
+  caregiverLock: { enabled: false, passcode: '' },
 };
 
 function reducer(state, action) {
