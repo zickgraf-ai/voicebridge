@@ -11,7 +11,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.js'],
     css: false,
-    exclude: ['e2e/**', 'node_modules/**'],
+    exclude: ['e2e/**', 'node_modules/**', '.claude/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
