@@ -14,6 +14,7 @@ import { useSuggestions } from '../hooks/useSuggestions';
 import { getTypingSuggestions } from '../utils/typingSuggestions';
 import SpeechBar from '../components/SpeechBar';
 import CategoryBar from '../components/CategoryBar';
+import CategorySelector from '../components/CategorySelector';
 import PhraseGrid from '../components/PhraseGrid';
 import PainScale from '../components/PainScale';
 import PhraseBuilder from '../components/PhraseBuilder';
@@ -53,7 +54,7 @@ const ALL_SCORABLE_PHRASES = (() => {
 })();
 
 export default function TalkScreen() {
-  const { state, addHistory, setFrequencyMap, setCustomPhrases } = useAppContext();
+  const { state, addHistory, setFrequencyMap, setCustomPhrases, setSettings } = useAppContext();
   const { profile, settings, history, frequencyMap, pinnedPhrases, locations, customPhrases, categoryOrder } = state;
   const voices = useVoices();
   const { speak: premiumSpeak, cancel: premiumCancel, cacheProgress, isPremium, error: voiceError } = usePremiumSpeech();
@@ -67,6 +68,7 @@ export default function TalkScreen() {
   const [showPain, setShowPain] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
 
   // Sync expanded state with editing
   useEffect(() => {
@@ -311,6 +313,8 @@ export default function TalkScreen() {
           }}
           size={settings.tabSize}
           categoryOrder={categoryOrder}
+          enabledCategories={settings.enabledCategories}
+          onAddCategories={() => setShowCategorySelector(true)}
         />
       </div>
       {/* Mine category action bar */}
@@ -405,6 +409,15 @@ export default function TalkScreen() {
           />
         )}
       </div>
+      {showCategorySelector && (
+        <CategorySelector
+          enabledCategories={settings.enabledCategories || CATEGORIES.map((c) => c.id)}
+          onUpdate={(newEnabled) => {
+            setSettings((s) => ({ ...s, enabledCategories: newEnabled }));
+          }}
+          onClose={() => setShowCategorySelector(false)}
+        />
+      )}
       {showAddModal && (
         <AddPhraseModal
           onAdd={(phrase) => {

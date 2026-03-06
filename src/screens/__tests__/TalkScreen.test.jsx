@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithContext } from '../../test/renderWithContext';
+import * as storage from '../../utils/storage';
 import TalkScreen from '../TalkScreen';
 
 // Hoisted mutable state for per-test premium toggle
@@ -178,10 +179,25 @@ describe('Mine category premium pre-cache', () => {
     globalThis.speechSynthesis.getVoices.mockReturnValue([
       { name: 'Samantha', lang: 'en-US', voiceURI: 'samantha', default: true },
     ]);
+    // Enable 'mine' category so it's visible in the category bar
+    const allCats = ['smart', 'mine', 'build', 'quick', 'medical', 'food', 'comfort', 'people', 'emotions', 'prose'];
+    const originalLoadState = storage.loadState;
+    vi.spyOn(storage, 'loadState').mockImplementation((key, fallback) => {
+      if (key === 'settings') {
+        return {
+          autoSpeak: true, voiceURI: '', voiceRate: 1.0, buttonSize: 'large',
+          tabSize: 'xl', painReminder: 120, caregiverAlert: 6,
+          voiceProvider: 'premium', premiumVoice: 'nova', premiumOnly: false,
+          enabledCategories: allCats,
+        };
+      }
+      return originalLoadState(key, fallback);
+    });
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
   });
 
   it('pre-caches premium voice when a custom phrase is added', async () => {

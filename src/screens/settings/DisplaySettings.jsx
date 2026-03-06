@@ -1,5 +1,7 @@
 import SegmentControl from '../../components/SegmentControl';
+import ToggleSwitch from '../../components/ToggleSwitch';
 import { CATEGORIES } from '../../data/phrases';
+import { ALL_CATEGORY_IDS, DEFAULT_ENABLED_CATEGORIES } from '../../context/AppContext';
 
 function CategoryReorder({ categoryOrder, setCategoryOrder }) {
   const defaultOrder = CATEGORIES.map((c) => c.id);
@@ -119,6 +121,92 @@ function CategoryReorder({ categoryOrder, setCategoryOrder }) {
   );
 }
 
+function CategoryVisibility({ enabledCategories, onUpdate }) {
+  const toggleCategory = (id) => {
+    if (enabledCategories.includes(id)) {
+      onUpdate('enabledCategories', enabledCategories.filter((cid) => cid !== id));
+    } else {
+      onUpdate('enabledCategories', [...enabledCategories, id]);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: '#1E293B',
+        borderRadius: 12,
+        padding: 12,
+        border: '1px solid #334155',
+      }}
+    >
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+      }}>
+        <div style={{ color: '#94A3B8', fontSize: 13 }}>
+          {'\uD83D\uDCC2'} Visible Categories
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={() => onUpdate('enabledCategories', ALL_CATEGORY_IDS)}
+            style={{
+              background: 'transparent',
+              border: '1px solid #334155',
+              borderRadius: 6,
+              padding: '3px 8px',
+              color: '#94A3B8',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            Enable All
+          </button>
+          <button
+            onClick={() => onUpdate('enabledCategories', DEFAULT_ENABLED_CATEGORIES)}
+            style={{
+              background: 'transparent',
+              border: '1px solid #334155',
+              borderRadius: 6,
+              padding: '3px 8px',
+              color: '#94A3B8',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {CATEGORIES.map((c) => (
+          <div
+            key={c.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: '#0F172A',
+              border: '1px solid #334155',
+              borderRadius: 8,
+              padding: '8px 10px',
+            }}
+          >
+            <span style={{ fontSize: 18 }}>{c.icon}</span>
+            <span style={{ flex: 1, color: '#E2E8F0', fontSize: 14 }}>{c.label}</span>
+            <ToggleSwitch
+              checked={enabledCategories.includes(c.id)}
+              onChange={() => toggleCategory(c.id)}
+              ariaLabel={`Show ${c.label} category`}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function DisplaySettings({ settings, onUpdate, categoryOrder, setCategoryOrder }) {
   return (
     <>
@@ -149,6 +237,12 @@ export default function DisplaySettings({ settings, onUpdate, categoryOrder, set
       <CategoryReorder
         categoryOrder={categoryOrder}
         setCategoryOrder={setCategoryOrder}
+      />
+
+      {/* Category Visibility */}
+      <CategoryVisibility
+        enabledCategories={settings.enabledCategories || ALL_CATEGORY_IDS}
+        onUpdate={onUpdate}
       />
     </>
   );
