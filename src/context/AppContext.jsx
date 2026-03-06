@@ -19,6 +19,8 @@ const DEFAULT_PROFILE = {
   ],
 };
 
+const DEFAULT_ENABLED_CATEGORIES = ['smart', 'quick', 'medical', 'food', 'people', 'emotions', 'build'];
+
 const DEFAULT_SETTINGS = {
   autoSpeak: true,
   voiceURI: '',
@@ -30,6 +32,7 @@ const DEFAULT_SETTINGS = {
   voiceProvider: 'premium',
   premiumVoice: 'nova',
   premiumOnly: false,
+  enabledCategories: DEFAULT_ENABLED_CATEGORIES,
 };
 
 function reducer(state, action) {
@@ -101,10 +104,18 @@ function reducer(state, action) {
   }
 }
 
+// All category IDs for migration (existing users keep all categories)
+const ALL_CATEGORY_IDS = ['smart', 'mine', 'build', 'quick', 'medical', 'food', 'comfort', 'people', 'emotions', 'prose'];
+
 function loadInitialState() {
+  const settings = loadState('settings', DEFAULT_SETTINGS);
+  // Migration: existing users who don't have enabledCategories get ALL categories
+  if (!settings.enabledCategories) {
+    settings.enabledCategories = ALL_CATEGORY_IDS;
+  }
   return {
     profile: loadState('profile', DEFAULT_PROFILE),
-    settings: loadState('settings', DEFAULT_SETTINGS),
+    settings,
     history: loadState('history', []),
     frequencyMap: loadState('frequencyMap', {}),
     pinnedPhrases: loadState('pinnedPhrases', []),
@@ -182,4 +193,4 @@ export function useAppContext() {
   return ctx;
 }
 
-export { DEFAULT_PROFILE, DEFAULT_SETTINGS };
+export { DEFAULT_PROFILE, DEFAULT_SETTINGS, DEFAULT_ENABLED_CATEGORIES, ALL_CATEGORY_IDS };
