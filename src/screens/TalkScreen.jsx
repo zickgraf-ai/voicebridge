@@ -6,10 +6,11 @@ import { useTtsPrefetch } from '../hooks/useTtsPrefetch';
 import { useLocation } from '../hooks/useLocation';
 import { useSwipe } from '../hooks/useSwipe';
 import { getIdentityPhrase } from '../utils/identity';
-import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES } from '../data/phrases';
+import { CATEGORY_PHRASES, CATEGORIES, LOCATION_PHRASES, PHRASE_TEXT_TO_ID } from '../data/phrases';
 import { SMART_PHRASES } from '../data/smartSuggest';
 import { updateFrequencyMap } from '../utils/smartEngine';
 import { putAudio, hasCachedKeySync } from '../utils/audioCache';
+import { trackPrebuiltPhrase, trackCustomPhrase, trackSuggestionAccepted, trackSuggestionDismissed, trackDeviceVoice, trackPremiumVoice, trackSuggestionsShown } from '../utils/analytics';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { getTypingSuggestions } from '../utils/typingSuggestions';
 import SpeechBar from '../components/SpeechBar';
@@ -134,11 +135,27 @@ export default function TalkScreen() {
           webVoices: voices,
           webVoiceURI: settings.voiceURI,
         });
+        // Analytics: track voice usage
+        if (settings.voiceProvider === 'premium') trackPremiumVoice(true);
+        else trackDeviceVoice(true);
       }
       addHistory({ phrase: newText, category: cat, source });
       setFrequencyMap((prev) => updateFrequencyMap(prev, newText, locationLabel));
+      // Analytics: track phrase usage
+      const phraseId = PHRASE_TEXT_TO_ID[newText];
+      if (phraseId) {
+        trackPrebuiltPhrase(phraseId);
+      } else {
+        trackCustomPhrase(newText.length);
+      }
+      // Track suggestion acceptance/dismissal
+      if (cat === 'smart' && source === 'button') {
+        trackSuggestionAccepted();
+      } else if (cat === 'smart') {
+        trackSuggestionDismissed();
+      }
     },
-    [settings, voices, cat, addHistory, setFrequencyMap, premiumSpeak]
+    [settings, voices, cat, addHistory, setFrequencyMap, premiumSpeak, locationLabel]
   );
 
   // ── Long Prose: always use device voice (free, no API cost) ──
@@ -197,6 +214,15 @@ export default function TalkScreen() {
     familyNames: (profile.familyMembers || []).map((f) => f.name),
     count: 9,
   });
+
+  // Analytics: track suggestions shown when smart tab is active
+  const prevSmartRef = useRef(0);
+  useEffect(() => {
+    if (cat === 'smart' && smartItems.length > 0 && smartItems.length !== prevSmartRef.current) {
+      trackSuggestionsShown(smartItems.length);
+      prevSmartRef.current = smartItems.length;
+    }
+  }, [cat, smartItems]);
 
   // Typing autocomplete suggestions
   const typingSuggestions = useMemo(() => {
@@ -269,6 +295,10 @@ export default function TalkScreen() {
           if (text.trim()) {
             addHistory({ phrase: text.trim(), category: cat, source: 'typed' });
             setFrequencyMap((prev) => updateFrequencyMap(prev, text.trim(), locationLabel));
+            // Analytics: track typed phrase
+            const phraseId = PHRASE_TEXT_TO_ID[text.trim()];
+            if (phraseId) trackPrebuiltPhrase(phraseId);
+            else trackCustomPhrase(text.trim().length);
           }
           setExpanded(false);
         }}

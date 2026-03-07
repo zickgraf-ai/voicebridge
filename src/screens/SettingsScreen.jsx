@@ -1091,6 +1091,58 @@ export default function SettingsScreen({ onNavigate }) {
         )}
       </div>
 
+      {/* Help Improve TapToSpeak (analytics opt-in) */}
+      <div
+        style={{
+          background: '#1E293B',
+          borderRadius: 12,
+          padding: 14,
+          border: '1px solid #334155',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div>
+          <div style={{ color: '#E2E8F0', fontSize: 15, fontWeight: 600 }}>
+            Help Improve TapToSpeak
+          </div>
+          <div style={{ color: '#64748B', fontSize: 12, marginTop: 2, maxWidth: 260 }}>
+            Share anonymous usage statistics to help us improve TapToSpeak. No personal information is ever collected.
+          </div>
+        </div>
+        <div
+          role="switch"
+          aria-checked={settings.analyticsEnabled}
+          aria-label="Help improve TapToSpeak"
+          tabIndex={0}
+          onClick={() => update('analyticsEnabled', !settings.analyticsEnabled)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); update('analyticsEnabled', !settings.analyticsEnabled); } }}
+          style={{
+            width: 52,
+            height: 28,
+            borderRadius: 14,
+            cursor: 'pointer',
+            background: settings.analyticsEnabled ? '#10B981' : '#475569',
+            position: 'relative',
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              background: '#fff',
+              position: 'absolute',
+              top: 2,
+              left: settings.analyticsEnabled ? 26 : 2,
+              transition: 'all 0.2s',
+            }}
+          />
+        </div>
+      </div>
+
       {/* Backup / Restore */}
       <div
         style={{
